@@ -1,0 +1,14 @@
+# Package from CRAN
+cran::data.table
+cran::tidyverse
+cran::parallel
+cran::devtools
+cran::ggplot2
+cran::assertthat
+cran::ggpubr
+
+
+#url
+git::https://github.com/mrc-ide/malariasimulation
+git::https://github.com/mrc-ide/site
+git::https://github.com/mrc-ide/cali
