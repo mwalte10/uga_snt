@@ -17,13 +17,10 @@ orderly::orderly_dependency(
   )
 )
 
-orderly::orderly_dependency(
-  name = "site_file",
-  query = "latest()",
-  files = c(
-    "site.RDS"
-  )
+orderly::orderly_shared_resource(
+  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
 )
+
 
 site <- readRDS("site.RDS")
 disagg_dt <- readRDS("disagg_dt.RDS")

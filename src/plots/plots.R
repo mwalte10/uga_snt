@@ -4,12 +4,8 @@ library(data.table)
 library(gridExtra)
 #library(wesanderson)
 
-orderly::orderly_dependency(
-  name = "site_file",
-  query = "latest()",
-  files = c(
-    site.RDS = "site.RDS"
-  )
+orderly::orderly_shared_resource(
+  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
 )
 
 orderly::orderly_dependency(
@@ -56,10 +52,13 @@ orderly::orderly_shared_resource(
 )
 
 ##load in site file
+#site = readRDS('Z:/Maggie/uga_snt/shared/raw_data/2026_01_19_UGA_SNT_sitefile.rds')
 site <- readRDS("site.RDS")
 ##load in dhs values for comparison
+#dhs_values = readRDS('Z:/Maggie/uga_snt/shared/dhs_values.RDS')
 dhs_values <- readRDS("dhs_values.RDS")
-setnames(dhs_values, c('adm_1_2025', 'adm_2_2025'), c('name_1', 'name_2'))
+data.table::setnames(dhs_values, c('adm_1_2025', 'adm_2_2025'), c('name_1', 'name_2'))
+#mis_2024 = data.table::fread('Z:/Maggie/uga_snt/shared/mis_2024.csv')
 mis_2024 <- fread("mis_2024.csv")
 dhs_values <- rbind(dhs_values, mis_2024, fill = T)
 
@@ -71,23 +70,41 @@ colors <- c("#0A9F9D", "#CEB175", "#E54E21", "#6C8645")
 ##Prevalence
 ###going to weight by PAR to aggregate up to the
 ################################################################################
-pop <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, year, age_lower, age_upper, par_pf)]
+pop <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural, 
+                                                        year, age_lower, age_upper, par_pf)]
 ##limit to <6
 pop <- pop[age_upper < 6]
 ##include only half of the 0-1 population
 pop[age_lower ==0, par_pf := 0.5 * par_pf]
-pop <- pop[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'year')]
+pop <- pop[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
 pop[,par_pf_adm1 := sum(par_pf), by = c('country', 'iso3c', 'name_1', 'year')]
 pop[,weight := par_pf  / par_pf_adm1]
-pop <- pop[,.(country, iso3c, name_1, name_2, year, weight)]
-
+pop <- pop[,.(country, iso3c, name_1, name_2, urban_rural, year, weight)]
 prev <- data.table(site$prevalence)
-prev <- merge(prev, pop, by = c('country', 'iso3c', 'name_1', 'name_2', 'year'))
+prev <- merge(prev, pop, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural','year'))
 prev[,prev := pfpr * weight]
-prev <- prev[,.(prev= sum(prev)), by = c('country', 'iso3c', 'name_1', 'year', 'urban_rural')]
+prev <- prev[,.(prev= sum(prev)), by = c('country', 'iso3c', 'name_1', 'year')]
+
+##To aggregate across urban rural for admin 2
+pop2 <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural, 
+                                                        year, age_lower, age_upper, par_pf)]
+##limit to <6
+pop2 <- pop2[age_upper < 6]
+##include only half of the 0-1 pop2ulation
+pop2[age_lower ==0, par_pf := 0.5 * par_pf]
+pop2 <- pop2[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
+pop2[,par_pf_adm2 := sum(par_pf), by = c('country', 'iso3c', 'name_1', 'name_2', 'year')]
+pop2[,weight := par_pf  / par_pf_adm2]
+pop2 <- pop2[,.(country, iso3c, name_1, name_2, urban_rural, year, weight)]
+prev2 <- data.table(site$prevalence)
+prev2 <- merge(prev2, pop2, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural','year'))
+prev2[,prev := pfpr * weight]
+prev2 <- prev2[,.(prev= sum(prev)), by = c('country', 'iso3c', 'name_1', 'name_2', 'year')]
+
 dhs_values[,prev_type := ifelse(prev_type == 'rdt', 'RDT', 'Microscopy')]
 
-prev_plots <- ggplot() + geom_line(data = prev, aes(year, prev, lty = urban_rural)) +
+prev_plots <- list()
+prev_plots[["admin_1"]] <- ggplot() + geom_line(data = prev, aes(year, prev)) +
   facet_wrap(~name_1) +
   geom_point(data = dhs_values[variable == 'prevalence' &
                                  admin_level == 1 &
@@ -102,7 +119,34 @@ prev_plots <- ggplot() + geom_line(data = prev, aes(year, prev, lty = urban_rura
   xlim(2010,2025) + ylim(0,1) +
   theme_bw(base_size = 14) + theme(legend.position = 'bottom',
                                    legend.box = 'vertical') +
-  labs(x = NULL, y = 'Prevalence among children 6m-5years', lty = 'Urbanicity', col = 'Prevalence test type')
+  labs(x = NULL, y = 'Prevalence among children 6m-5years', 
+       col = 'Prevalence test type')
+
+
+for(name_1_in in unique(prev2$name_1)){
+  prev_plots[[name_1_in]] <-   ggplot() + 
+    geom_line(data = prev2[name_1 == name_1_in], aes(year, prev)) +
+    facet_wrap(~name_2) +
+    geom_point(data = dhs_values[variable == 'prevalence' &
+                                   admin_level == 2 &
+                                   name_1 %in% name_1_in & 
+                                   name_2 %in% unique(prev2[name_1 == name_1_in, name_2])], aes(as.integer(SurveyYear), mean, col = prev_type)) +
+    geom_errorbar(data = dhs_values[variable == 'prevalence' &
+                                      admin_level == 2 &
+                                      name_1 %in% name_1_in & 
+                                      name_2 %in% unique(prev2[name_1 == name_1_in, name_2])], aes(as.integer(SurveyYear), ymin = lower,
+                                                                    ymax = upper, col = prev_type),
+                  width = 0) +
+    scale_color_manual(values = c('RDT' = colors[1],
+                                  'Microscopy' = colors[2])) +
+    xlim(2010,2025) + ylim(0,1) +
+    theme_bw(base_size = 14) + theme(legend.position = 'bottom',
+                                     legend.box = 'vertical') +
+    labs(x = NULL, y = 'Prevalence among children 6m-5years', 
+         title = name_1_in,
+         col = 'Prevalence test type',
+         caption = 'Note: DHS/MIS values are not representative at the district level')
+}
 
 pdf("./prev.pdf", width = 8, height = 8)
 prev_plots

@@ -6,6 +6,7 @@ cran::devtools
 cran::ggplot2
 cran::assertthat
 cran::ggpubr
+cran::reshape2
 
 
 #url
