@@ -98,22 +98,22 @@ saveRDS(tx_cov, 'tx_cov.RDS')
 
 
 ##test how different monthly, quarterly, and annual values are
-test <- tx_cov[variable == 'tx_cov_N2']
-test <- test[,.(country, iso3c, name_1, name_2, low_level,
-                year, month, value = tx_cov_N2, N2)]
-##replace coverages over 1 with 1
-test[,value := ifelse(value > 1, 1, value)]
-test[,q := ceiling(month / 3)]
-test[,q_mean := weighted.mean(value, w = N2), by = c('low_level', 'name_1', 'name_2', 'year', 'q')]
-test[,y_mean := weighted.mean(value, w = N2), by = c('low_level', 'name_1', 'name_2', 'year')]
-
-
-ggplot(test, aes(value, q_mean, size = N2)) + geom_point() +
-  facet_wrap(~name_1) + geom_abline(slope = 1, intercept = 0) +
-  ggpubr::stat_cor()
-ggplot(test, aes(value, y_mean, size = N2)) + geom_point() +
-  facet_wrap(~name_1) + geom_abline(slope = 1, intercept = 0) +
-  ggpubr::stat_cor()
+# test <- tx_cov[variable == 'tx_cov_N2']
+# test <- test[,.(country, iso3c, name_1, name_2, low_level,
+#                 year, month, value = tx_cov_N2, N2)]
+# ##replace coverages over 1 with 1
+# test[,value := ifelse(value > 1, 1, value)]
+# test[,q := ceiling(month / 3)]
+# test[,q_mean := weighted.mean(value, w = N2), by = c('low_level', 'name_1', 'name_2', 'year', 'q')]
+# test[,y_mean := weighted.mean(value, w = N2), by = c('low_level', 'name_1', 'name_2', 'year')]
+#
+#
+# ggplot(test, aes(value, q_mean, size = N2)) + geom_point() +
+#   facet_wrap(~name_1) + geom_abline(slope = 1, intercept = 0) +
+#   ggpubr::stat_cor()
+# ggplot(test, aes(value, y_mean, size = N2)) + geom_point() +
+#   facet_wrap(~name_1) + geom_abline(slope = 1, intercept = 0) +
+#   ggpubr::stat_cor()
 
 
 ###shift map 2020 values to align with DHIS2 data
