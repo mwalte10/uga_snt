@@ -21,13 +21,10 @@ library(readxl)
 
 
 # Dependencies
-orderly::orderly_dependency(
-  name = "site_file",
-  query = "latest()",
-  files = c(
-    "site.RDS"
-  )
+orderly::orderly_shared_resource(
+  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
 )
+
 
 orderly::orderly_dependency(
   name = "process_raw_data",
@@ -38,7 +35,7 @@ orderly::orderly_dependency(
 )
 
 orderly::orderly_shared_resource(
-  mc_smc_report.csv = "/raw_data/mc_smc_report.csv"
+  mc_smc_report.csv = "raw_data/mc_smc_report.csv"
 )
 
 site <- readRDS("site.RDS")
@@ -110,9 +107,11 @@ smc <- rbind(smc, smc_2024, fill = T)
 ##get total population of the distrticts included in SMC
 test <- merge(pop_by_age, unique(smc[low_level == 'adm_2',.(name_2, year, age, keep = T)]), by = c('name_2', 'year', 'age'))
 test <- test[,.(total_pop = sum(pop)), by = c('name_1', 'year')]
-test <- merge(test, mc, by = c('year', 'name_1'))
+test[,pop:= NULL]
+test <- merge(test, smc, by = c('year', 'name_1'))
 test[,smc_treated := total_pop * value]
-test <- test[,.(country, iso3c, name_1, name_2, year, smc_min_age, smc_max_age, age, round, round_day_of_year,
+test <- test[,.(country, iso3c, name_1, name_2, year, smc_min_age, smc_max_age, age, round, 
+                round_day_of_year,
                 low_level, variable, smc_treated)]
 test <- merge(test, pop_by_age_adm1[age %in% c('<1', '1-4'),.(pop = sum(pop)), by = c('year', 'name_1')], by = c('year',
                                                                                                                  'name_1'))

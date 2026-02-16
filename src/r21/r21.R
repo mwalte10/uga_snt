@@ -17,13 +17,10 @@ orderly::orderly_dependency(
   )
 )
 
-orderly::orderly_dependency(
-  name = "site_file",
-  query = "latest()",
-  files = c(
-    "site.RDS"
-  )
+orderly::orderly_shared_resource(
+  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
 )
+
 
 site <- readRDS("site.RDS")
 disagg_dt <- readRDS("disagg_dt.RDS")
@@ -52,7 +49,8 @@ site_pop_adm1[,name_2 := name_1]
 site_pop <- rbind(site_pop[,low_level := 'adm_2'],
                   site_pop_adm1[,low_level := 'adm_1'])
 
-##aggregating across urbaname_1##aggregating across urban/rural right now
+##aggregating across urbaname_1
+##aggregating across urban/rural right now
 site_pop <- site_pop[age_lower == 0 & age_upper == 1,.(par_pf = sum(par_pf)),
                      by = c('country', 'iso3c', 'name_1', 'name_2', 'low_level', 'year')]
 
@@ -60,4 +58,11 @@ r21_dt <- merge(r21_dt, site_pop, by = c('country', 'iso3c', 'year',
                                          'name_1', 'name_2', 'low_level'), all.x = T, allow.cartesian = T)
 
 r21_dt[,r21_cov := value / par_pf]
+
+r21_dt_2026 <- r21_dt[year == 2025,.(country, iso3c, year, name_1, name_2, low_level,
+                                     variable, value = value * (12/8), par_pf = par_pf)]
+r21_dt_2026[,r21_cov := value / par_pf]
+r21_dt_2026[,year := 2026]
+r21_dt <- rbind(r21_dt, r21_dt_2026)
+
 saveRDS(r21_dt, 'r21.RDS')
