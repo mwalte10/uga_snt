@@ -18,11 +18,7 @@ orderly::orderly_shared_resource(
 )
 
 orderly::orderly_shared_resource(
-<<<<<<< HEAD
   site.rds = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
-=======
-  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
->>>>>>> 235047abbd0b57b01509b54e01670f83803d9432
 )
 
 

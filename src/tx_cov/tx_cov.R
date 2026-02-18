@@ -89,9 +89,6 @@ tx_cov <- data.table(reshape2::melt(tx_cov[,.(country, iso3c, name_1, name_2, lo
                                                                                   'year', 'month')))
 
 
-
-
-
 ##test how different monthly, quarterly, and annual values are
 
 # test <- tx_cov[variable == 'tx_cov_N2']
@@ -120,16 +117,15 @@ pop <- data.table(site$population$population_total)[,.(country, iso3c, name_1, n
                                                        urban_rural, year, par_pf)]
 
 
-tx_cov_2020 <- tx_cov[variable == 'tx_cov_N2' &
-                   year == 2020,.(value = mean(value)), by = c('country',
+##averaging across the period to help for places like Amuru
+tx_cov_avg <- tx_cov[variable == 'tx_cov_N2' &
+                   year %in% 2020:2025,.(value = mean(value)), by = c('country',
                                                                         'iso3c',
                                                                         'name_1',
                                                                         'name_2',
-                                                                        'low_level',
-                                                                        'year')]
+                                                                        'low_level')]
 
-test <- merge(map, tx_cov_2020, by = c('name_1', 'name_2',
-                          'year'), allow.cartesian = T)
+test <- merge(map, tx_cov_avg, by = c('name_1', 'name_2'), allow.cartesian = T)
 test[,map_minus_dhis2 := tx_cov - value]
 test <- test[,.(name_1, name_2, urban_rural, map_minus_dhis2)]
 new <- merge(data.table(site$interventions$treatment$implementation),

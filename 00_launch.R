@@ -20,6 +20,8 @@ options(hipercow.max_size_local = Inf)
 # orderly::orderly_new("smc",template = F)
 # orderly::orderly_new("r21",template = F)
 # orderly::orderly_new("irs",template = F)
+# orderly::orderly_new("gen_new_site",template = F)
+# orderly::orderly_new("calibration",template = F)
 # orderly::orderly_new("plots",template = F)
 
 
@@ -82,7 +84,17 @@ while(task_status(itn) %in% c('running', 'submitted')){
 }
 task_result(itn)
 
-##Plots, this didn't work
+##new site
+new_site <- task_create_expr(orderly::orderly_run(name = "gen_new_site"),
+                        resources = resources_in)
+while(task_status(new_site) %in% c('running', 'submitted')){
+  print('Waiting for new site generation to finish')
+  Sys.sleep(5)
+}
+task_result(new_site)
+
+##Plots
+##TODO: figure out why tx_cov isn't working??
 plots <- task_create_expr(orderly::orderly_run(name = "plots"),
                         resources = resources_in)
 while(task_status(plots) %in% c('running', 'submitted')){
