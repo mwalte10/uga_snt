@@ -70,12 +70,15 @@ smc[,periodname := NULL]
 smc[,smc_rounds := 5]
 ##from Malaria consortium data
 smc[,smc_drug := 'sp_aq']
+##Sum across ages
+smc <- smc[,.(value = sum(value), smc_min_age  = min(smc_min_age), smc_max_age = max(smc_max_age)),
+           by = c('country', 'iso3c', 'name_1', 'name_2', 'low_level', 'year', 'period', 'smc_rounds', 'smc_drug')]
+smc[,age := paste0(smc_min_age/365,'-',smc_max_age/365)]
 
 pop_by_age <- data.table(site$population$population_by_age)
-pop_by_age[age_lower == 0,age := '<1']
-pop_by_age[age_lower %in% 1:4,age:= '1-4']
-pop_by_age[age_lower %in% 5:6, age := '5-6']
-pop_by_age[age_lower %in% 7:10, age := '7-10']
+pop_by_age <- rbind(copy(pop_by_age)[age_lower %in% 0:4,age:= '0-4'],
+                    copy(pop_by_age)[age_lower %in% 0:10,age:= '0-10'],
+                    copy(pop_by_age)[age_lower %in% 5:10,age:= '5-10'])
 pop_by_age <- pop_by_age[!is.na(age),.(pop = sum(par_pf), low_level = 'adm_2'), by = c('country', 'iso3c', 'name_1', 'name_2',
                                                                                        'year', 'age')]
 
@@ -90,57 +93,31 @@ pop_by_age <- rbind(pop_by_age,
                     pop_by_age_adm1)
 
 smc <- merge(smc, pop_by_age, by = c('country', 'iso3c', 'year', 'name_1', 'name_2', 'low_level', 'age'), all.x = T)
-##TODO: dividing this by 5 to represent the 5 rounds, will need to confirm...
-smc[,smc_cov := value / 5 / pop]
-smc[,smc_cov_no_split := value / pop]
-
-##census value
-smc_2024 <- copy(smc[year == 2024 & low_level == 'adm_1'])
-smc_2024 <- smc_2024[,.(value = sum(value)), by = c('country', 'iso3c', 'year', 'name_1', 'name_2', 'low_level',
-                                                    'period', 'smc_rounds', 'smc_drug')]
-smc_2024[,smc_min_age := 0]
-smc_2024[,smc_max_age := 1460]
-smc_2024[,age := '<5']
-smc_2024[,smc_cov_census := value / 279921]
-smc <- rbind(smc, smc_2024, fill = T)
-
-##get total population of the distrticts included in SMC
-test <- merge(pop_by_age, unique(smc[low_level == 'adm_2',.(name_2, year, age, keep = T)]), by = c('name_2', 'year', 'age'))
-test <- test[,.(total_pop = sum(pop)), by = c('name_1', 'year')]
-test[,pop:= NULL]
-test <- merge(test, smc, by = c('year', 'name_1'))
-test[,smc_treated := total_pop * value]
-test <- test[,.(country, iso3c, name_1, name_2, year, smc_min_age, smc_max_age, age, round, 
-                round_day_of_year,
-                low_level, variable, smc_treated)]
-test <- merge(test, pop_by_age_adm1[age %in% c('<1', '1-4'),.(pop = sum(pop)), by = c('year', 'name_1')], by = c('year',
-                                                                                                                 'name_1'))
-test[,smc_cov_mc_report := smc_treated/ pop]
-test[,low_level := 'adm_1']
-test <- test[,.(country, iso3c, name_1, name_2, year, smc_min_age, smc_max_age, age, round, round_day_of_year,
-                low_level, smc_cov_mc_report)]
-
-#smc <- rbind(smc, test, fill = T)
+smc[,smc_cov := value / pop]
 
 
-##Assume that the five rounds are equally divided across the april to september period
-##just using 2025 as this would be the same for all give years
-smc_days <- floor(seq(lubridate::yday(c("2025-04-01")),lubridate::yday(c("2025-09-30")), length.out  = 5))
-smc_days <- data.table(round = 1:5, round_day_of_year = smc_days)
-smc_cov_out <- data.table()
-for(round_in in unique(smc_days$round)){
-  smc_cov_out <- rbind(smc_cov_out, smc[,.(country, iso3c, name_1, name_2, smc_min_age, smc_max_age,
-                                           age, year, round = round_in,
-                                           low_level,
-                                           smc_cov, smc_cov_no_split, smc_cov_census,
-                                           round_day_of_year = smc_days[round == round_in, round_day_of_year])])
-}
+# Cap SMC coverage at 100% --------------------------------
+smc[,smc_cov := ifelse(smc_cov > 1, 1, smc_cov)]
 
-smc_cov_out <- rbind(smc_cov_out, test, fill = T)
+# Assign round-specific coverages using MC surveys ------------------------
+##For missing values will just assume the mean of the values that are there
+mc <- fread("mc_smc_report.csv")
+mc[,mean_year := mean(value, na.rm = T), by = c('year')]
+mc[,value := ifelse(is.na(value), mean_year, value)]
+##all MC surveys are among <5 year olds, assume this coverage holds true for all age groups
+mc <- mc[,.(year, round, round_day_of_year, survey_cov = value)]
+##Assume that 2025 survey coverages will be the same as 2024
+mc_2025 <- copy(mc[year==2024,])
+mc_2025[,year := 2025]
+mc <- rbind(mc,
+            mc_2025)
 
-##Need to turn the values into coverage, so will pull in population
-##I assume this will be easiest using the site file, but will for now pull in other options
-##Have <u5 population in the UPDATED pop
-##have 2024 age disaggs in soecial age groups
-##can change this to coverage with population by age in the site file
-saveRDS(smc_cov_out, 'smc.RDS')
+smc <- merge(smc, mc, by = c('year'), allow.cartesian = T)
+smc[,smc_cov := smc_cov * survey_cov]
+
+# Put in site file format -------------------------------------------------
+smc <- smc[,.(country, iso3c, name_1, name_2, urban_rural = NA, year, smc_cov, peak_season = NA,
+       smc_min_age, smc_max_age, round, round_day_of_year)]
+smc[,low_level := ifelse(name_1 == name_2, 'adm_1', 'adm_2')]
+
+saveRDS(smc, 'smc.RDS')

@@ -89,11 +89,8 @@ tx_cov <- data.table(reshape2::melt(tx_cov[,.(country, iso3c, name_1, name_2, lo
                                                                                   'year', 'month')))
 
 
+##test how different monthly, quarterly, and annual values are
 
-saveRDS(tx_cov, 'tx_cov.RDS')
-
-
-# ##test how different monthly, quarterly, and annual values are
 # test <- tx_cov[variable == 'tx_cov_N2']
 # test <- test[,.(country, iso3c, name_1, name_2, low_level,
 #                 year, month, value = tx_cov_N2, N2)]
@@ -102,8 +99,6 @@ saveRDS(tx_cov, 'tx_cov.RDS')
 # test[,q := ceiling(month / 3)]
 # test[,q_mean := weighted.mean(value, w = N2), by = c('low_level', 'name_1', 'name_2', 'year', 'q')]
 # test[,y_mean := weighted.mean(value, w = N2), by = c('low_level', 'name_1', 'name_2', 'year')]
-# 
-# 
 # ggplot(test, aes(value, q_mean, size = N2)) + geom_point() +
 #   facet_wrap(~name_1) + geom_abline(slope = 1, intercept = 0) +
 #   ggpubr::stat_cor()
@@ -115,23 +110,22 @@ saveRDS(tx_cov, 'tx_cov.RDS')
 ###shift map 2020 values to align with DHIS2 data
 ##(crude way for right now)
 ##Need to clean this up, consider changing to intercept shifting to 2021
-tx_cov <- readRDS(paste0(getwd(), '/archive/tx_cov/', list.files(paste0(getwd(), '/archive/tx_cov/'))[length(list.files(paste0(getwd(), '/archive/tx_cov/')))], '/tx_cov.RDS'))
+# tx_cov <- readRDS(paste0(getwd(), '/archive/tx_cov/', list.files(paste0(getwd(), '/archive/tx_cov/'))[length(list.files(paste0(getwd(), '/archive/tx_cov/')))], '/tx_cov.RDS'))
 map <- data.table(site$interventions$treatment$implementation)
 map <- map[year == 2020,.(name_1, name_2, urban_rural, year, tx_cov)]
 pop <- data.table(site$population$population_total)[,.(country, iso3c, name_1, name_2,
                                                        urban_rural, year, par_pf)]
 
 
-tx_cov_2020 <- tx_cov[variable == 'tx_cov_N2' &
-                   year == 2020,.(value = mean(value)), by = c('country', 
+##averaging across the period to help for places like Amuru
+tx_cov_avg <- tx_cov[variable == 'tx_cov_N2' &
+                   year %in% 2020:2025,.(value = mean(value)), by = c('country',
                                                                         'iso3c',
                                                                         'name_1',
                                                                         'name_2',
-                                                                        'low_level',
-                                                                        'year')]
+                                                                        'low_level')]
 
-test <- merge(map, tx_cov_2020, by = c('name_1', 'name_2',
-                          'year'), allow.cartesian = T)
+test <- merge(map, tx_cov_avg, by = c('name_1', 'name_2'), allow.cartesian = T)
 test[,map_minus_dhis2 := tx_cov - value]
 test <- test[,.(name_1, name_2, urban_rural, map_minus_dhis2)]
 new <- merge(data.table(site$interventions$treatment$implementation),
@@ -139,30 +133,23 @@ new <- merge(data.table(site$interventions$treatment$implementation),
              )
 new[,tx_cov := tx_cov - map_minus_dhis2]
 tx_cov_mean <- tx_cov[variable == 'tx_cov_N2',.(country, iso3c, name_1,
-                                                name_2, 
+                                                name_2,
                                                 year,
                                                 urban_rural = NA, low_level,
                                                 value, source = 'dhis2')]
 tx_cov_mean <- tx_cov_mean[,.(value = mean(value)), by = c('country', 'iso3c', 'name_1', 'name_2',
                                                            'year', 'urban_rural', 'low_level', 'source')]
-new <- rbind(new[,.(country, iso3c, name_1, 
+new <- rbind(new[,.(country, iso3c, name_1,
                     name_2, urban_rural, low_level = 'adm_2',
                     year,
-                    value = tx_cov, 
-                    source = 'adj_map')], 
+                    value = tx_cov,
+                    source = 'adj_map')],
              tx_cov_mean)
+saveRDS(new, 'tx_cov.RDS')
 
-plot_list <- list()
-for(name_1_in in unique(new$name_1)){
-  plot_list[[name_1_in]] <- ggplot() + 
-    geom_line(data = new[source == 'adj_map' & name_1 == name_1_in & year > 2009], 
-              aes(year, value, group = urban_rural)) + 
-    geom_point(data = new[source == 'dhis2' & name_1 == name_1_in,],
-               aes(year, value)) + 
-    ylim(0,1) + 
-    facet_wrap(~name_2) + theme_bw() + 
-    labs(x = NULL, y = 'Treatment coverage', title = name_1_in)
-}
+
+
+
 
 
 

@@ -18,7 +18,7 @@ orderly::orderly_shared_resource(
 )
 
 orderly::orderly_shared_resource(
-  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
+  site.rds = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
 )
 
 

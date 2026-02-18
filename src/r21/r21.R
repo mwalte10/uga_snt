@@ -49,7 +49,8 @@ site_pop_adm1[,name_2 := name_1]
 site_pop <- rbind(site_pop[,low_level := 'adm_2'],
                   site_pop_adm1[,low_level := 'adm_1'])
 
-##aggregating across urbaname_1##aggregating across urban/rural right now
+##aggregating across urbaname_1
+##aggregating across urban/rural right now
 site_pop <- site_pop[age_lower == 0 & age_upper == 1,.(par_pf = sum(par_pf)),
                      by = c('country', 'iso3c', 'name_1', 'name_2', 'low_level', 'year')]
 
@@ -57,4 +58,31 @@ r21_dt <- merge(r21_dt, site_pop, by = c('country', 'iso3c', 'year',
                                          'name_1', 'name_2', 'low_level'), all.x = T, allow.cartesian = T)
 
 r21_dt[,r21_cov := value / par_pf]
+
+r21_dt_2026 <- r21_dt[year == 2025,.(country, iso3c, year, name_1, name_2, low_level,
+                                     variable, value = value * (12/8), par_pf = par_pf)]
+r21_dt_2026[,r21_cov := value / par_pf]
+r21_dt_2026[,year := 2026]
+r21_dt <- rbind(r21_dt, r21_dt_2026)
+
+
+# Assume that booster dropout is equal to dose 2-3 dropout ----------------
+##NOTE: This is very optimistic
+dropout <- r21_dt[variable %in% c('Malaria_vaccine_2', 'Malaria_vaccine_3') &
+                  year == 2025,.(country, iso3c, year,
+                                                                              name_1, name_2, low_level,
+                                                                              variable, r21_cov)]
+dropout <- dcast(dropout, country + iso3c + year + name_1 + name_2 + low_level ~ variable, value.var = 'r21_cov')
+dropout[,do := Malaria_vaccine_3 / Malaria_vaccine_2]
+dropout[,Malaria_vaccine_booster := Malaria_vaccine_3 * do]
+booster <- dropout[,.(country, iso3c, year = 2026, name_1, name_2, low_level,
+                      r21_booster1_cov = Malaria_vaccine_booster)]
+
+# Reformat for site file --------------------------------------------------
+r21_dt <- r21_dt[,.(country, iso3c, name_1, name_2, low_level, urban_rural = NA, year, r21_primary_cov = r21_cov,
+                    r21_vaccine_dose = variable, rtss_primary_cov = 0, peak_season = NA,
+                    rtss_booster1_cov = 0, hybrid_booster_day_of_year = NA)]
+r21_dt <- merge(r21_dt, booster, by = c('country', 'iso3c', 'year', 'name_1', 'name_2', 'low_level'), all.x = T)
+r21_dt[is.na(r21_booster1_cov),r21_booster1_cov := 0]
+
 saveRDS(r21_dt, 'r21.RDS')
