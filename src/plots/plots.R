@@ -60,6 +60,15 @@ orderly::orderly_dependency(
 
 orderly::orderly_dependency(
   name = "process_calibration",
+  ##75% IRS efficacy
+  query = "20260223-131056-7c2b469d",
+  files = c(
+    calibrated_results_he.RDS = "calibrated_results.RDS"
+  )
+)
+
+orderly::orderly_dependency(
+  name = "process_calibration",
   query = "latest()",
   files = c(
     aggregated_results.RDS = "aggregated_results.RDS"
@@ -104,7 +113,7 @@ districts <- c(setdiff(districts, 'Sembabule'), 'Ssembabule')
 pop <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural,
                                                         year, age_lower, age_upper, par_pf)]
 ##limit to 2-10 years
-pop <- pop[age_lower %in% 2:10]
+pop <- pop[age_lower %in% 2:9]
 pop <- pop[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
 pop[,par_pf_adm1 := sum(par_pf), by = c('country', 'iso3c', 'name_1', 'year')]
 pop[,weight := par_pf  / par_pf_adm1]
@@ -126,6 +135,7 @@ prev <- merge(prev, pop2, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_
 prev[,pf_prev := par_pf * pfpr]
 prev <- prev[,.(pf_prev = sum(pf_prev), par_pf = sum(par_pf)), by = c('name_1', 'year')]
 prev[,prev := pf_prev / par_pf]
+prev2 <- prev
 
 dhs_values[,prev_type := ifelse(prev_type == 'rdt', 'RDT', 'Microscopy')]
 ##remove 2015/2016 microscopy, not collected in that survey so those zeroes are false
@@ -198,27 +208,42 @@ prev_plots
 dev.off()
 
 #calib <- readRDS(paste0(getwd(), '/archive/process_calibration/', list.files(paste0(getwd(), '/archive/process_calibration/'))[length(list.files(paste0(getwd(), '/archive/process_calibration/')))], '/calibrated_results.RDS'))
+#calib_he <- readRDS("Z:/Maggie/uga_snt/archive/process_calibration/20260223-131056-7c2b469d/calibrated_results.RDS")
 calib <- readRDS("calibrated_results.RDS")
-
+calib_he <- readRDS("calibrated_results_he.RDS")
 
 prev_plots_admin2 <- list()
+districts = c("Apac", 'Dokolo', 'Amolatar', 'Kalaki', 'Kaberamaido')
 for(name_2_in in districts){
   if(name_2_in %in% unique(calib$name_2)){
     x <- calib[name_2 == name_2_in,]
     fitted_prev <- data.table(postie::get_prevalence(x))
+    fitted_prev[,run := 'Lower efficacy']
+
+    y <- calib_he[name_2 == name_2_in,]
+    fitted_prev_he <- data.table(postie::get_prevalence(y))
+    fitted_prev_he[,run := 'Higher efficacy']
+
+    fitted_prev <- rbind(fitted_prev,
+                         fitted_prev_he)
+    fitted_prev <- unique(fitted_prev)
   }else{
     fitted_prev  <- data.table::data.table(
       time = NA,
       lm_prevalence_2_10 = NA,
-      name_2 = name_2_in
+      name_2 = name_2_in,
+      run = NA
     )
   }
 
+  site_prev_map <- data.table(site$prevalence)[name_2 == name_2_in,]
 
   prev_plots_admin2[[name_2_in]] <-   ggplot() +
-    geom_point(data = prev2[name_2 == name_2_in], aes(year + 0.5, prev),
+    geom_line(data = fitted_prev, aes(time, lm_prevalence_2_10, col = run, group = run)) +
+    geom_point(data = site_prev_map[year %in% c(2000,2006,2009,2011,2014,2016,2018)], aes(year + 0.5, pfpr, group = urban_rural),
                col = colors[2], size = 3) +
-    geom_line(data = fitted_prev, aes(time, lm_prevalence_2_10)) +
+    geom_point(data = site_prev_map[!(year %in% c(2000,2006,2009,2011,2014,2016,2018))], aes(year + 0.5, pfpr, group = urban_rural),
+               col = colors[2], size = 3, alpha = 0.2) +
     facet_wrap(~name_2) +
     geom_point(data = dhs_values[variable == 'prevalence' &
                                    admin_level == 2 &
@@ -226,11 +251,11 @@ for(name_2_in in districts){
                                    prev_type == 'Microscopy'],
                aes(as.integer(SurveyYear), mean, col = prev_type),
                shape = 18, alpha = 0.5, col = 'black', size = 3) +
-    scale_color_manual(values = c('Microscopy' = colors[3])) +
     xlim(2010,2026) + ylim(0,1) +
     theme_bw() + theme(legend.position = 'bottom',
                                      legend.box = 'vertical') +
     labs(x = NULL, y = expression(PfPR[2*y - 10*y]))
+
 }
 
 
@@ -465,7 +490,6 @@ for(name_2_in in districts){
 # IRS ---------------------------------------------------------------------
 # ################################################################################
 #irs_dt <- readRDS(paste0(getwd(), '/archive/irs/', list.files(paste0(getwd(), '/archive/irs/'))[length(list.files(paste0(getwd(), '/archive/irs/')))], '/irs.RDS'))
-#irs_dt <- readRDS(paste0(getwd(), '/draft/irs/', list.files(paste0(getwd(), '/draft/irs/'))[length(list.files(paste0(getwd(), '/draft/irs/')))], '/irs.RDS'))
 
 irs_dt <- readRDS("irs_cov.RDS")
 irs_dt[source == 'campaign_data', source := 'NMED']
@@ -616,29 +640,30 @@ for(name_2_in in districts){
   y_max <- max(llin[level == 'adm_2' & name_2 == name_2_in & year > 2009,itn_use])
   map <- data.table(site$interventions$itn$use)
   map <- map[name_2 == name_2_in,.(itn_use = mean(itn_use)), by = c('name_2', 'year')]
+  year_min = 2009
 
   itn_plots_admin2[[name_2_in]] <- ggplot() +
-    geom_line(data = llin[level == 'adm_2' & grepl('Modelled usage', source) & name_2 == name_2_in & year > 2009],
+    geom_line(data = llin[level == 'adm_2' & grepl('Modelled usage', source) & name_2 == name_2_in & year > year_min],
               aes(x = year + (usage_day_of_year - 1)/ 365, y = itn_use)) +
     geom_point(data = dhs_values[variable == 'net_usage'  & SurveyYear %in% 2010:2025 & admin_level == 2 &
                                    name_2 == name_2_in],
                aes(as.integer(SurveyYear), mean), size = 3, alpha = 0.5, shape = 18) +
     geom_point(data = llin[level == 'adm_2' & source == "NMED" &
-                             name_2 == name_2_in & year > 2009 & itn_use < 1],
+                             name_2 == name_2_in & year > year_min & itn_use < 1],
                aes(year + (usage_day_of_year - 1)/ 365, itn_use), col = colors[1], size = 2, alpha = 0.8) +
     geom_point(data = llin[level == 'adm_2' & source == "NMED" &
-                             name_2 == name_2_in & year > 2009 & itn_use > 1],
+                             name_2 == name_2_in & year > year_min & itn_use > 1],
                aes(year + (usage_day_of_year - 1)/ 365, y = 1), col = colors[1], size = 2, alpha = 0.8,
                shape = 8) +
-    geom_point(data = map[year > 2009],
+    geom_point(data = map[year > year_min],
                aes(year + 0.5, itn_use), col = colors[2], size = 2, alpha = 0.8) +
-    geom_bar(data = llin[level == 'adm_2' & grepl('Modelled usage', source) & name_2 == name_2_in & year > 2009 &
+    geom_bar(data = llin[level == 'adm_2' & grepl('Modelled usage', source) & name_2 == name_2_in & year > year_min &
                           !is.na(model_distribution)],
              aes(x = year + (distribution_day_of_year - 1)/365,
                  y = model_distribution, col = distribution_type), stat = 'identity',
              show.legend = F) +
     ggrepel::geom_text_repel(data = llin[level == 'adm_2' & source == "NMED" &
-                             name_2 == name_2_in & year > 2009 & itn_use > 1],
+                             name_2 == name_2_in & year > year_min & itn_use > 1],
                aes(year + (usage_day_of_year - 1)/ 365, y = 1, label = paste0(itn_use*100,'%')), col = colors[1], size = 2.5, alpha = 0.8) +
     facet_wrap(~name_2) +
     geom_point(data = data.table(name_2 = name_2_in, year = 2015, itn_use = 0), aes(year, itn_use), col = NA) +
@@ -681,7 +706,7 @@ get_dist_plots <- function(name_2_in){
   )
 }
 
-pdf("./district_plots.pdf", width = 8, height = 12)
+pdf("./district_plots_temp.pdf", width = 8, height = 12)
 
 invisible(lapply(districts, get_dist_plots))
 
