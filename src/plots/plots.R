@@ -3,10 +3,11 @@ library(tidyverse)
 library(data.table)
 library(gridExtra)
 library(cowplot)
+library(geofacet)
 #library(wesanderson)
 
 orderly::orderly_shared_resource(
-  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
+  site.RDS = "raw_data/2026_02_18_UGA_SNT_sitefile.rds"
 )
 
 orderly::orderly_dependency(
@@ -49,6 +50,23 @@ orderly::orderly_dependency(
   )
 )
 
+orderly::orderly_dependency(
+  name = "process_calibration",
+  query = "latest()",
+  files = c(
+    calibrated_results.RDS = "calibrated_results.RDS"
+  )
+)
+
+orderly::orderly_dependency(
+  name = "process_calibration",
+  query = "latest()",
+  files = c(
+    aggregated_results.RDS = "aggregated_results.RDS"
+  )
+)
+
+
 orderly::orderly_shared_resource(
   dhs_values.RDS = "dhs_values.RDS"
 )
@@ -61,7 +79,7 @@ orderly::orderly_shared_resource(
 )
 
 ##load in site file
-#site = readRDS('Z:/Maggie/uga_snt/shared/raw_data/2026_01_19_UGA_SNT_sitefile.rds')
+#site = readRDS('Z:/Maggie/uga_snt/shared/raw_data/2026_02_18_UGA_SNT_sitefile.rds')
 site <- readRDS("site.RDS")
 ##load in dhs values for comparison
 #dhs_values = readRDS('Z:/Maggie/uga_snt/shared/dhs_values.RDS')
@@ -83,107 +101,137 @@ districts <- c(setdiff(districts, 'Sembabule'), 'Ssembabule')
 ##Prevalence
 ###going to weight by PAR to aggregate up to the
 ################################################################################
-# pop <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural,
-#                                                         year, age_lower, age_upper, par_pf)]
-# ##limit to <6
-# pop <- pop[age_upper < 6]
-# ##include only half of the 0-1 population
-# pop[age_lower ==0, par_pf := 0.5 * par_pf]
-# pop <- pop[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
-# pop[,par_pf_adm1 := sum(par_pf), by = c('country', 'iso3c', 'name_1', 'year')]
-# pop[,weight := par_pf  / par_pf_adm1]
-# pop <- pop[,.(country, iso3c, name_1, name_2, urban_rural, year, weight)]
-# prev <- data.table(site$prevalence)
-# prev <- merge(prev, pop, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural','year'))
-# prev[,prev := pfpr * weight]
-# prev <- prev[,.(prev= sum(prev)), by = c('country', 'iso3c', 'name_1', 'year')]
-#
-# ##To aggregate across urban rural for admin 2
-# pop2 <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural,
-#                                                         year, age_lower, age_upper, par_pf)]
-# ##limit to <6
-# pop2 <- pop2[age_upper < 6]
-# ##include only half of the 0-1 pop2ulation
-# pop2[age_lower ==0, par_pf := 0.5 * par_pf]
-# pop2 <- pop2[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
-# pop2[,par_pf_adm2 := sum(par_pf), by = c('country', 'iso3c', 'name_1', 'name_2', 'year')]
-# pop2[,weight := par_pf  / par_pf_adm2]
-# pop2 <- pop2[,.(country, iso3c, name_1, name_2, urban_rural, year, weight)]
-# prev2 <- data.table(site$prevalence)
-# prev2 <- merge(prev2, pop2, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural','year'))
-# prev2[,prev := pfpr * weight]
-# prev2 <- prev2[,.(prev= sum(prev)), by = c('country', 'iso3c', 'name_1', 'name_2', 'year')]
-#
-# dhs_values[,prev_type := ifelse(prev_type == 'rdt', 'RDT', 'Microscopy')]
-#
-# prev_plots <- list()
-# prev_plots[["Uganda"]] <- ggplot() + geom_line(data = prev, aes(year, prev)) +
-#   facet_wrap(~name_1) +
-#   geom_point(data = dhs_values[variable == 'prevalence' &
-#                                  admin_level == 1 &
-#                                  name_1 %in% prev$name_1], aes(as.integer(SurveyYear), mean, col = prev_type)) +
-#   geom_errorbar(data = dhs_values[variable == 'prevalence' &
-#                                     admin_level == 1 &
-#                                     name_1 %in% prev$name_1], aes(as.integer(SurveyYear), ymin = lower,
-#                                                                   ymax = upper, col = prev_type),
-#                 width = 0) +
-#   scale_color_manual(values = c('RDT' = colors[1],
-#                                 'Microscopy' = colors[2])) +
-#   xlim(2010,2025) + ylim(0,1) +
-#   theme_bw(base_size = 14) + theme(legend.position = 'bottom',
-#                                    legend.box = 'vertical') +
-#   labs(x = NULL, y = 'Prevalence among children 6m-5years',
-#        title = 'Uganda',
-#        col = 'Prevalence test type')
-#
-#
-# for(name_1_in in unique(prev2$name_1)){
-#   prev_plots[[name_1_in]] <-   ggplot() +
-#     geom_line(data = prev2[name_1 == name_1_in], aes(year, prev)) +
-#     facet_wrap(~name_2) +
-#     geom_point(data = dhs_values[variable == 'prevalence' &
-#                                    admin_level == 2 &
-#                                    name_1 %in% name_1_in &
-#                                    name_2 %in% unique(prev2[name_1 == name_1_in, name_2])], aes(as.integer(SurveyYear), mean, col = prev_type)) +
-#     geom_errorbar(data = dhs_values[variable == 'prevalence' &
-#                                       admin_level == 2 &
-#                                       name_1 %in% name_1_in &
-#                                       name_2 %in% unique(prev2[name_1 == name_1_in, name_2])], aes(as.integer(SurveyYear), ymin = lower,
-#                                                                     ymax = upper, col = prev_type),
-#                   width = 0) +
-#     scale_color_manual(values = c('RDT' = colors[1],
-#                                   'Microscopy' = colors[2])) +
-#     xlim(2010,2025) + ylim(0,1) +
-#     theme_bw(base_size = 14) + theme(legend.position = 'bottom',
-#                                      legend.box = 'vertical') +
-#     labs(x = NULL, y = 'Prevalence among children 6m-5years',
-#          title = name_1_in,
-#          col = 'Prevalence test type',
-#          caption = 'Note: DHS/MIS values are not representative at the district level')
-# }
-#
-# pdf("./prev.pdf", width = 8, height = 8)
-# prev_plots
-# dev.off()
-#
-# prev_plots_admin2 <- list()
-# for(name_2_in in districts){
-#   prev_plots_admin2[[name_2_in]] <-   ggplot() +
-#     geom_line(data = prev2[name_2 == name_2_in], aes(year, prev)) +
-#     facet_wrap(~name_2) +
-#     geom_point(data = dhs_values[variable == 'prevalence' &
-#                                    admin_level == 2 &
-#                                    name_2 %in% name_2_in &
-#                                    prev_type == 'Microscopy'],
-#                aes(as.integer(SurveyYear), mean, col = prev_type),
-#                shape = 18, alpha = 0.5, col = 'black', size = 3) +
-#     scale_color_manual(values = c('RDT' = colors[1],
-#                                   'Microscopy' = colors[2])) +
-#     xlim(2010,2026) + ylim(0,1) +
-#     theme_bw() + theme(legend.position = 'bottom',
-#                                      legend.box = 'vertical') +
-#     labs(x = NULL, y = expression(PfPR[6*m - 5*y]))
-# }
+pop <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural,
+                                                        year, age_lower, age_upper, par_pf)]
+##limit to 2-10 years
+pop <- pop[age_lower %in% 2:10]
+pop <- pop[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
+pop[,par_pf_adm1 := sum(par_pf), by = c('country', 'iso3c', 'name_1', 'year')]
+pop[,weight := par_pf  / par_pf_adm1]
+pop <- pop[,.(country, iso3c, name_1, name_2, urban_rural, year, weight)]
+prev <- data.table(site$prevalence)
+prev <- merge(prev, pop, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural','year'))
+prev[,prev := pfpr * weight]
+prev <- prev[,.(prev= sum(prev)), by = c('country', 'iso3c', 'name_1', 'year')]
+
+##To aggregate across urban rural for admin 2
+prev <- data.table(site$prevalence)
+pop2 <- data.table(site$population$population_by_age)[,.(country, iso3c, name_1, name_2, urban_rural,
+                                                         year, age_lower, age_upper, par_pf)]
+##limit to 2-10 years
+pop2 <- pop2[age_lower %in% 2:9]
+pop2 <- pop2[,.(par_pf = sum(par_pf)), by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural', 'year')]
+prev <- merge(prev, pop2, by = c('country', 'iso3c', 'name_1', 'name_2', 'urban_rural','year'),
+              all.x = T)
+prev[,pf_prev := par_pf * pfpr]
+prev <- prev[,.(pf_prev = sum(pf_prev), par_pf = sum(par_pf)), by = c('name_1', 'year')]
+prev[,prev := pf_prev / par_pf]
+
+dhs_values[,prev_type := ifelse(prev_type == 'rdt', 'RDT', 'Microscopy')]
+##remove 2015/2016 microscopy, not collected in that survey so those zeroes are false
+dhs_values <- dhs_values[!(prev_type == 'Microscopy' & SurveyYear == 2016),]
+dhs_values <- dhs_values[!(SurveyYear == 2011),] ##only Karamoja
+# dhs_values <- rbind(dhs_values,
+#                     data.table(name_1 = 'Acholi', name_2 = 'Acholi',  variable = 'prevalence',
+#                                  admin_level = 1, SurveyYear = 2020, prev_type = 'PCR', mean = NA),
+#                     fill = T)
+
+
+#agg_results <- readRDS(paste0(getwd(), '/archive/process_calibration/', list.files(paste0(getwd(), '/archive/process_calibration/'))[length(list.files(paste0(getwd(), '/archive/process_calibration/')))], '/aggregated_results.RDS'))
+agg_results <- readRDS("aggregated_results.RDS")
+
+prev_plots <- list()
+prev_plots[["Uganda"]] <- ggplot() +
+  geom_line(data = prev, aes(year, prev)) +
+  # geom_line(data = prev[year < 2019], aes(year, prev)) +
+ # geom_line(data = prev[year >= 2019], aes(year, prev), col = 'grey') +
+  facet_wrap(~name_1) +
+  geom_point(data = dhs_values[variable == 'prevalence' &
+                                 admin_level == 1 &
+                                 name_1 %in% prev$name_1], aes(as.integer(SurveyYear), mean, col = prev_type)) +
+  geom_errorbar(data = dhs_values[variable == 'prevalence' &
+                                    admin_level == 1 &
+                                    name_1 %in% prev$name_1], aes(as.integer(SurveyYear), ymin = lower,
+                                                                  ymax = upper, col = prev_type),
+                width = 0) +
+  # geom_line(data = agg_results[low_level == 'adm_1' & variable == 'detect_pcr' & year > 2009,],
+  #           aes(year + day_of_year / 365, prev), col = colors[3]) +
+  geom_line(data = agg_results[low_level == 'adm_1' & variable == 'detect_lm' & year > 2009,],
+            aes(year + day_of_year / 365, prev), col = colors[2]) +
+  scale_color_manual(values = c('RDT' = colors[1],
+                                'Microscopy' = colors[2])) +
+  xlim(2010,2026) + ylim(0,1) +
+  theme_bw(base_size = 14) + theme(legend.position = 'bottom',
+                                   legend.box = 'vertical') +
+  labs(x = NULL, y = 'Prevalence among children 2-10 years',
+       title = 'Uganda',
+       col = 'Prevalence test type')
+
+
+for(name_1_in in unique(prev2$name_1)){
+  prev_plots[[name_1_in]] <-   ggplot() +
+    geom_line(data = prev2[name_1 == name_1_in], aes(year, prev)) +
+    facet_wrap(~name_2) +
+    geom_point(data = dhs_values[variable == 'prevalence' &
+                                   admin_level == 2 &
+                                   name_1 %in% name_1_in &
+                                   name_2 %in% unique(prev2[name_1 == name_1_in, name_2])], aes(as.integer(SurveyYear), mean, col = prev_type)) +
+    geom_errorbar(data = dhs_values[variable == 'prevalence' &
+                                      admin_level == 2 &
+                                      name_1 %in% name_1_in &
+                                      name_2 %in% unique(prev2[name_1 == name_1_in, name_2])], aes(as.integer(SurveyYear), ymin = lower,
+                                                                    ymax = upper, col = prev_type),
+                  width = 0) +
+    scale_color_manual(values = c('RDT' = colors[1],
+                                  'Microscopy' = colors[2])) +
+    xlim(2010,2025) + ylim(0,1) +
+    theme_bw(base_size = 14) + theme(legend.position = 'bottom',
+                                     legend.box = 'vertical') +
+    labs(x = NULL, y = 'Prevalence among children 2-10 years',
+         title = name_1_in,
+         col = 'Prevalence test type',
+         caption = 'Note: DHS/MIS values are not representative at the district level')
+}
+
+pdf("./prev.pdf", width = 8, height = 8)
+prev_plots
+dev.off()
+
+#calib <- readRDS(paste0(getwd(), '/archive/process_calibration/', list.files(paste0(getwd(), '/archive/process_calibration/'))[length(list.files(paste0(getwd(), '/archive/process_calibration/')))], '/calibrated_results.RDS'))
+calib <- readRDS("calibrated_results.RDS")
+
+
+prev_plots_admin2 <- list()
+for(name_2_in in districts){
+  if(name_2_in %in% unique(calib$name_2)){
+    x <- calib[name_2 == name_2_in,]
+    fitted_prev <- data.table(postie::get_prevalence(x))
+  }else{
+    fitted_prev  <- data.table::data.table(
+      time = NA,
+      lm_prevalence_2_10 = NA,
+      name_2 = name_2_in
+    )
+  }
+
+
+  prev_plots_admin2[[name_2_in]] <-   ggplot() +
+    geom_point(data = prev2[name_2 == name_2_in], aes(year + 0.5, prev),
+               col = colors[2], size = 3) +
+    geom_line(data = fitted_prev, aes(time, lm_prevalence_2_10)) +
+    facet_wrap(~name_2) +
+    geom_point(data = dhs_values[variable == 'prevalence' &
+                                   admin_level == 2 &
+                                   name_2 %in% name_2_in &
+                                   prev_type == 'Microscopy'],
+               aes(as.integer(SurveyYear), mean, col = prev_type),
+               shape = 18, alpha = 0.5, col = 'black', size = 3) +
+    scale_color_manual(values = c('Microscopy' = colors[3])) +
+    xlim(2010,2026) + ylim(0,1) +
+    theme_bw() + theme(legend.position = 'bottom',
+                                     legend.box = 'vertical') +
+    labs(x = NULL, y = expression(PfPR[2*y - 10*y]))
+}
 
 
 ################################################################################
@@ -506,12 +554,12 @@ for(name_2_in in districts){
 # ################################################################################
 #llin<- readRDS(paste0(getwd(), '/archive/itn/', list.files(paste0(getwd(), '/archive/itn/'))[length(list.files(paste0(getwd(), '/archive/itn/')))], '/llin.RDS'))
 llin <- readRDS("llin.RDS")
-llin[source == 'Distribution coverage', source := 'NMED']
+llin[source == "Programmatic distribution coverage", source := 'NMED']
 
 llin_plot_list <- list()
 llin_plot_list[['Uganda']] <- ggplot() +
   geom_hline(yintercept = 1, alpha = 0.8) +
-  geom_line(data = llin[level == 'adm_1' & grepl('MAP', source) & year > 2009],
+  geom_line(data = llin[level == 'adm_1' & grepl('Modelled usage', source) & year > 2009],
             aes(x = year + (usage_day_of_year - 1)/ 365, y = itn_use)) +
   geom_point(data = dhs_values[variable == 'net_usage'  & SurveyYear %in% 2010:2025 & admin_level == 1 &
                                name_1 %in% unique(llin[level== 'adm_1',name_1])],
@@ -525,10 +573,13 @@ llin_plot_list[['Uganda']] <- ggplot() +
 
 for(name_1_in in unique(llin$name_1)){
   y_max <- max(llin[level == 'adm_2' & name_1 == name_1_in & year > 2009,itn_use])
+  map <- data.table(site$interventions$itn$use)
+  map <- map[name_1 == name_1_in,.(itn_use = mean(itn_use)), by = c('name_2', 'year')]
+
 
   llin_plot_list[[name_1_in]] <- ggplot() +
     geom_hline(yintercept = 1, alpha = 0.8) +
-    geom_line(data = llin[level == 'adm_2' & grepl('MAP', source) &
+    geom_line(data = llin[level == 'adm_2' & grepl('Modelled usage', source) &
                             name_1 == name_1_in & year > 2009],
               aes(x = year + (usage_day_of_year - 1)/ 365, y = itn_use)) +
     geom_point(data = dhs_values[variable == 'net_usage'  & SurveyYear %in% 2010:2025 & admin_level == 2 &
@@ -537,6 +588,16 @@ for(name_1_in in unique(llin$name_1)){
                aes(as.integer(SurveyYear), mean), size = 2, alpha = 0.5, shape = 18) +
     geom_point(data = llin[level == 'adm_2' & source == "NMED" & name_1 == name_1_in & year > 2009],
                aes(year + (usage_day_of_year - 1)/ 365, itn_use), col = colors[1]) +
+    geom_point(data = map[year > 2009],
+               aes(year + 0.5, itn_use), col = colors[2], size = 2, alpha = 0.8) +
+    geom_bar(data = llin[level == 'adm_2' &
+                           grepl('Modelled usage', source) &
+                           year > 2009 &
+                           name_1 == name_1_in &
+                           !is.na(model_distribution)],
+             aes(x = year + (distribution_day_of_year - 1)/365,
+                 y = model_distribution, col = distribution_type), stat = 'identity',
+             show.legend = F) +
     facet_wrap(~name_2) +
     ylim(0, y_max) +
     labs(x = NULL, y = 'ITN usage',
@@ -549,13 +610,15 @@ pdf("./itn.pdf", width = 8, height = 8)
 unique( llin_plot_list)
 dev.off()
 
-
+##TODO: Add back on the original MAP points
 itn_plots_admin2 <- list()
 for(name_2_in in districts){
   y_max <- max(llin[level == 'adm_2' & name_2 == name_2_in & year > 2009,itn_use])
+  map <- data.table(site$interventions$itn$use)
+  map <- map[name_2 == name_2_in,.(itn_use = mean(itn_use)), by = c('name_2', 'year')]
 
   itn_plots_admin2[[name_2_in]] <- ggplot() +
-    geom_line(data = llin[level == 'adm_2' & grepl('MAP', source) & name_2 == name_2_in & year > 2009],
+    geom_line(data = llin[level == 'adm_2' & grepl('Modelled usage', source) & name_2 == name_2_in & year > 2009],
               aes(x = year + (usage_day_of_year - 1)/ 365, y = itn_use)) +
     geom_point(data = dhs_values[variable == 'net_usage'  & SurveyYear %in% 2010:2025 & admin_level == 2 &
                                    name_2 == name_2_in],
@@ -567,6 +630,13 @@ for(name_2_in in districts){
                              name_2 == name_2_in & year > 2009 & itn_use > 1],
                aes(year + (usage_day_of_year - 1)/ 365, y = 1), col = colors[1], size = 2, alpha = 0.8,
                shape = 8) +
+    geom_point(data = map[year > 2009],
+               aes(year + 0.5, itn_use), col = colors[2], size = 2, alpha = 0.8) +
+    geom_bar(data = llin[level == 'adm_2' & grepl('Modelled usage', source) & name_2 == name_2_in & year > 2009 &
+                          !is.na(model_distribution)],
+             aes(x = year + (distribution_day_of_year - 1)/365,
+                 y = model_distribution, col = distribution_type), stat = 'identity',
+             show.legend = F) +
     ggrepel::geom_text_repel(data = llin[level == 'adm_2' & source == "NMED" &
                              name_2 == name_2_in & year > 2009 & itn_use > 1],
                aes(year + (usage_day_of_year - 1)/ 365, y = 1, label = paste0(itn_use*100,'%')), col = colors[1], size = 2.5, alpha = 0.8) +
@@ -576,7 +646,8 @@ for(name_2_in in districts){
          #caption = 'Diamonds represent cluster-level DHS/MIS coverage and are NOT representative\nRed circles represent reported distribution coverage'
          ) +
     theme_bw()+
-      scale_y_continuous(       breaks = seq(0, 1, by = 0.25),       limits = c(0, 1)     )
+      scale_y_continuous(breaks = seq(0, 1, by = 0.25),
+                         limits = c(0, 1))
 
 }
 

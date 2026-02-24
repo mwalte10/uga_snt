@@ -100,21 +100,17 @@ site$interventions$irs$implementation <- data.frame(irs[low_level == 'adm_2' &
                                                                                    insecticide, round, spray_day_of_year)])
 
 ########################Need to do some reconfiguring here
-site$interventions$itn$implementation <- data.frame(llin[level == 'adm_2' & source !=  'Distribution coverage',.(country, iso3c, name_1, name_2,
-                                                                                                                                               urban_rural = 'rural',
+site$interventions$itn$implementation <-  data.frame(llin[level == 'adm_2' & !is.na(distribution_type),.(country, iso3c, name_1, name_2,
                                                             year,
                                                             ##MAP has all nets as pyrethroid
                                                             net_type = ifelse(is.na(net_type),
                                                                                 'pyrethroid_only',
                                                                                 net_type),
-                                                            distribution_type, distribution_day_of_year,
-                                                            distribution_lower = 0, distribution_upper = 1,
-                                                            itn_input_dist)])
-site$interventions$itn$use <- data.frame(llin[level == 'adm_2' & source !=  'Distribution coverage',.(country, iso3c, name_1, name_2,
-                                                                                                                                               urban_rural = 'rural',
-                                                                                                                                               year,
-                                                                                                                                               itn_use, usage_day_of_year)])
-
+                                                            itn_input_dist = model_distribution,
+                                                            distribution_type = ifelse(distribution_type == 'rt', 'routine', 'mass'),
+                                                            distribution_day_of_year,
+                                                            distribution_lower, distribution_upper)])
+site$interventions$itn$use <- data.frame(llin[level == 'adm_2',.(country, iso3c, name_1, name_2, year, itn_use, usage_day_of_year)])
 
 saveRDS(site, 'new_site.RDS')
 

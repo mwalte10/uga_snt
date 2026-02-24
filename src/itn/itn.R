@@ -37,9 +37,7 @@ orderly::orderly_dependency(
 
 #loc_map <- readRDS(paste0(getwd(), '/archive/process_raw_data/', list.files(paste0(getwd(), '/archive/process_raw_data/'))[length(list.files(paste0(getwd(), '/archive/process_raw_data/')))], '/loc_hierarchy.RDS'))
 loc_map <- readRDS("loc_hierarchy.RDS")
-
 site <- readRDS("site.RDS")
-
 
 # MAP usage estimates ------------------------------------------------------
 site_itn_use <- data.table(site$interventions$itn$use)
@@ -56,122 +54,84 @@ site_itn_use_adm2 <- site_itn_use[,.(name_1, name_2, level = 'adm_2', year, pop_
 site_itn_use_adm2 <- site_itn_use_adm2[,.(pop_use_itn = sum(pop_use_itn),
                                      pop = sum(pop)), by = c('name_1', 'name_2', 'level', 'year')]
 site_itn_use <- rbind(site_itn_use_adm1, site_itn_use_adm2)
-site_itn_use[,cov := pop_use_itn / pop]
+site_itn_use[,itn_use := pop_use_itn / pop]
 site_itn_use[name_2 == 'Sembabule', name_2 := 'Ssembabule']
+##Assume all MAP usage estimates are from the first of the year
+site_itn_use[,use_timestep := (year - 2000) * 365 + 1]
 
-# Re-align the distribution campaigns -------------------------------------
-##net_waves <- fread("shared/net_distribution_waves.csv")
-net_waves <- fread("net_waves.csv")
-net_waves[name_2 == 'Sembabule', name_2 := 'Ssembabule']
-net_waves[!is.na(month),date := paste0(year, '/', unlist(lapply(net_waves$month, function(x) which(x == month.name))), '/01')]
-net_waves[is.na(month),date := paste0(year, '/1/01')]
-net_waves[,date := as.Date(date)]
-net_waves[,day_of_year := lubridate::yday(date)]
+# Create data frame that contains distribution campaigns ------------------
+#distrib_cov <- fread("shared/distribution_coverages.csv")
+distrib_cov <- fread("distrib_cov.csv")
+mda <- distrib_cov
+mda[,month_ord := unlist(lapply(month, function(x) which(x == month.name)))]
+mda[,date := paste0(year, '-', month_ord, '-01')]
+mda[,day_of_year := lubridate::yday(as.Date(date))]
+mda[,distribution_lower := 0.5]
+mda[,distribution_upper := 1]
+mda <- mda[,.(year, name_2, day_of_year, distribution_lower, distribution_upper)]
+##Identify pre 2014 ITN campaigns
+site_itn_use[,year_before := shift(itn_use), by = c('name_1', 'name_2')]
+site_itn_use[,year_after := shift(itn_use, type = 'lead'), by = c('name_1', 'name_2')]
+site_itn_use[,scale_peak := itn_use / ((year_before * 0.5 + 0.5 * year_after))]
+site_itn_use[,peak := ifelse(itn_use > year_before & itn_use > year_after, T, F)]
+peaks <- unique(site_itn_use)
+peaks <- unique(peaks[peak == T & year < 2014 & scale_peak > 1.5,.(name_2, year, day_of_year = 1,
+                                                                   distribution_lower = 0.5, distribution_upper = 1)])
 
-##Based on site files find the distribution years
-##distribution years will have higher coverage than the year before and after
-site_itn_use[,year_before := shift(cov), by = c('name_1', 'name_2', 'level')]
-site_itn_use[,year_after := shift(cov, type = 'lead'), by = c('name_1', 'name_2', 'level')]
-site_itn_use[,peak := ifelse(cov > year_before & cov > year_after, T, F)]
-site_itn_use <- unique(site_itn_use)
-dist_years_site <- site_itn_use[peak == T & level == 'adm_2',.(name_2, year)]
-##only have data on campaigns starting in 2012
-dist_years_site <- dist_years_site[year > 2011]
-##The way I've pulled out peaks may obscure some districts with continuously increasing
-##itn coverage (e.g. Yumbe), will add on any earlier campaigns from net campaign data
-# dist_years[,first_campaign := min(year), by = 'name_2']
-# add_campaigns <- merge(net_waves[year != 2013], unique(dist_years[,.(name_2, first_campaign)]), by = 'name_2')
-# dist_years <- rbind(add_campaigns[year < first_campaign,.(name_2, year)],
-#                     dist_years[,.(year, name_2)])
-dist_years <- unique(net_waves[,.(year, level = 'adm_2', name_2)])
+mda <- rbind(mda,
+             peaks, fill = T)
+mda[,dist_timestep := (year - 2000) * 365 + day_of_year]
+mda <- mda[,.(name_2, dist_timestep, distribution_lower, distribution_upper)]
+##add on routine distributions, assume they happen 3 times a year and can reach 50% of the population
+rt <- data.table(expand.grid(list(name_2 = as.character(unique(mda$name_2)),
+                                  dist_timestep = c(2,90,180)  + 365 * (0:25),
+                                  distribution_lower = 0,
+                                  distribution_upper = 0.5)))
+rt[,name_2 := as.character(name_2)]
+dist <- rbind(mda[,type := 'mda'],
+              rt[,type := 'rt'],
+              fill = T)
+dist <- dist[order(dist_timestep),.(name_2, dist_timestep, distribution_lower, distribution_upper, type)]
 
-get_new_net_usage <- function(dt){
-  name_2_in = dt[['name_2']]
-  year_in = as.integer(dt[['year']])
-  level_in = dt[['level']]
+# Obtain model distributions ----------------------------------------------
+get_model_inputs <- function(name_2_in, dist_dt, use_dt){
+  dist_dt.adm2 <- dist_dt[name_2 == name_2_in,]
+  dist_dt.adm2 <- dist_dt.adm2[order(dist_timestep),]
+  use_dt.adm2 <- use_dt[name_2 == name_2_in,]
+  use_dt.adm2 <- use_dt.adm2[order(use_timestep),]
+
+  model_distribution <- netz::usage_to_model_distribution(
+    usage = use_dt.adm2$itn_use,
+    usage_timesteps = use_dt.adm2$use_timestep,
+    distribution_timesteps = dist_dt.adm2$dist_timestep,
+    half_life = netz::get_halflife('UGA'),
+    distribution_lower = dist_dt.adm2$distribution_lower,
+    distribution_upper = dist_dt.adm2$distribution_upper,
+    net_loss_function = netz::net_loss_map
+  )
+  dist_dt.adm2[,itn_input_dist := model_distribution]
+  setnames(dist_dt.adm2, 'dist_timestep', 'ts')
+
+  pred <- data.table(ts = 1:(365 * 26))
+  pred[,year := floor((ts-1) / 365) + 2000]
+  pred$model_usage <- netz::model_distribution_to_usage(
+    usage_timesteps = pred$ts,
+    distribution = dist_dt.adm2$itn_input_dist,
+    distribution_timesteps = dist_dt.adm2$ts,
+    half_life = netz::get_halflife('UGA'),
+    net_loss_function = netz::net_loss_map
+  )
+
+  pred <- merge(pred, dist_dt.adm2, by = c('ts'), all.x = T, all.y = T)
+  pred[,name_2 := name_2_in]
   print(name_2_in)
-  print(year_in)
-  ##ARGS:
-  ##name_2_in: district that is being adjusted
-  ##year_in: distribution year that occurs in the site file
-
-  ##Need to calculate how many days are occurring between distributions
-  site_dist <- dist_years_site[name_2 == name_2_in]
-  if(nrow(site_dist) == 0){
-    return(NULL)
-  }
-  site_dist_year <- site_dist[which.min(abs(site_dist$year - year_in)),year]
-  net_waves_adm2 <- net_waves[name_2 == name_2_in]
-  true_dist_day <- net_waves_adm2[which.min(abs(net_waves_adm2$year - year_in)),day_of_year]
-  if(length(true_dist_day) == 0){
-    ##TODO: fix this eventually, as this is due to redistricting occurring.
-    return(NULL)
-  }
-
-  next_dist <- net_waves_adm2[year > site_dist_year,]
-  next_dist_year <- next_dist[which.min(abs(year - site_dist_year)), year]
-  if(length(next_dist_year) == 0){
-    ##This means that the year_in is the last date that we have data for, so make the next distribution assumed to be start of 2026
-    ##TODO: Update this once we have the actual distribution plan for 2026
-    next_dist_year = 2026
-    next_dist_day = 1
-  }else{
-    next_dist_day <- next_dist[which.min(abs(year - site_dist_year)), day_of_year]
-  }
-
-  # Convert to actual dates
-  current_dist <- as.Date(true_dist_day - 1, origin = paste0(site_dist_year, "-01-01"))
-  next_dist <- as.Date(next_dist_day - 1, origin = paste0(next_dist_year, "-01-01"))
-
-  # Calculate difference
-  days_between <- as.numeric(next_dist - current_dist)
-
-  ##Get monthly usages from now (current_dist date) until one month before the next dist
-  if(next_dist_year == 2026){
-    usage_days <- seq(0,days_between, by = 365)## timepoints for netzpackage
-  }else{
-    usage_days <- seq(0,days_between, by = 365)[-length(seq(1,days_between, by = 365))] ## timepoints for netzpackage
-  }
-  usage_dates <- usage_days + current_dist
-
-  annual_usage = netz::model_distribution_to_usage(
-                                    usage_timesteps = usage_days,
-                                    ##MAP's distribution coverage estimate
-                                    distribution = site_itn_use[name_2 == name_2_in & year == year_in & level == level_in,cov],
-                                    distribution_timesteps = 0,
-                                    ##Assume's people are keeping nets for 3 years, likely optimisitic
-                                    mean_retention = 365 * 3)
-  new_usage = data.table(date = usage_dates,
-                         name_2 = name_2_in,
-                         level = level_in,
-                         useage = annual_usage)
-  return(new_usage)
+  return(pred)
 }
 
-new_net_usage <- apply(dist_years, 1, get_new_net_usage)
-new_net_usage <- rbindlist(new_net_usage, fill = T)
-##find the first year that we have campaign data for, and for years before that use MAP estimates
-new_net_usage[,min_year := min(date), by = 'name_2']
-new_net_usage[,min_year := lubridate::year(min_year)]
-
-get_historical_useage <- function(dt){
-  name_2_in = dt[['name_2']]
-  year_in = as.integer(dt[['year']])
-  print(name_2_in)
-  print(year_in)
-  ##ARGS:
-  ##name_2_in: district
-  ##year_in: first net distribution year
- if(nrow(site_itn_use[name_2 == name_2_in & year < year_in,]) == 0){
-   return(NULL)
- }
-  return(site_itn_use[name_2 == name_2_in & year < year_in,.(name_2, date = as.Date(paste0(year, '-01-01')), useage = cov)])
-}
-
-hist_useage <- rbindlist(apply(unique(new_net_usage[,.(name_2, year = min_year)]), 1, get_historical_useage))
-hist_useage[,source := 'MAP']
-new_net_usage[,source := 'Inferred from distribution campaign dates & MAP distribution coverage']
-itn_cov <- rbind(hist_useage, new_net_usage[,.(date, name_2, useage, source)])
+itn_cov <- lapply(unique(site_itn_use$name_2),
+                  get_model_inputs, dist_dt = dist,
+                  use_dt = site_itn_use)
+itn_cov <- rbindlist(itn_cov)
 
 
 # Campaign data for comparison --------------------------------------------
@@ -180,8 +140,10 @@ distrib_cov <- fread("distrib_cov.csv")
 distrib_cov[name_2 == 'Sembabule',name_2 := 'Ssembabule']
 distrib_cov[,month := unlist(lapply(distrib_cov$month, function(x) which(x == month.name)))]
 distrib_cov[,date := as.Date(paste0(year, '-', month, '-01'), '%Y-%m-%d')]
-distrib_cov <- distrib_cov[,.(name_2, date, useage = coverage, source = 'Distribution coverage')]
-itn_cov <- rbind(itn_cov, distrib_cov)
+distrib_cov <- distrib_cov[,.(name_2, date, model_usage = coverage, source = 'Programmatic distribution coverage')]
+distrib_cov[,ts := ((lubridate::year(date)) - 2000) * 365 + (lubridate::yday(date))]
+distrib_cov[,year := lubridate::year(date)]
+itn_cov <- rbind(itn_cov[,source := 'Modelled usage'], distrib_cov, fill = T)
 
 # Bind on 2023 net types --------------------------------------------------
 ##accepted types: pyrethroid_only, pyrethroid_pbo and pyrethroid_pyrrole
@@ -189,27 +151,31 @@ itn_cov <- rbind(itn_cov, distrib_cov)
 net_type_2023 <- fread("net_type_2023.csv")
 setnames(net_type_2023, c('District_city', 'Status'), c('name_2', 'net_type'))
 net_type_2023[name_2 == 'Sembabule',name_2 := 'Ssembabule']
-itn_cov[,year := lubridate::year(date)]
 itn_cov <- merge(itn_cov, net_type_2023[,year:=2023], by = c('name_2', 'year'), all.x = T)
 itn_cov[net_type == 'PBO', net_type := "pyrethroid_pbo"]
 itn_cov[net_type == 'NewGen', net_type := "pyrethroid_pyrrole"]
 itn_cov[net_type == 'Standard', net_type := "pyrethroid_only"]
-itn_cov[,year := NULL]
 
 # Reformat in line with site file -----------------------------------------
 loc_map[name_2 == 'Sembabule',name_2 := 'Ssembabule']
 itn_cov <- merge(itn_cov, loc_map, by = c('name_2'))
+save = copy(itn_cov)
 itn_cov <- copy(itn_cov)[,.(country = 'Uganda',
                       iso3c = 'UGA',
-                      name_1, name_2, urban_rural = NA,
-                      year = lubridate::year(date),
-                      itn_use = useage,
-                      usage_day_of_year = lubridate::yday(date),
+                      name_1, name_2,
+                      urban_rural = NA,
+                      year = year,
+                      itn_use = model_usage,
+                      model_distribution = itn_input_dist,
+                      usage_day_of_year = ts - floor((ts-1)/365) * 365,
                       net_type,
-                      ##Consider if the non-known mass distributions should just be routine...
-                      distribution_type = 'mass',
-                      distribution_day_of_year = lubridate::yday(date),
-                      source)]
+                      distribution_type = type,
+                      distribution_lower,
+                      distribution_upper,
+                      source,
+                      ts)]
+itn_cov[!is.na(distribution_type),distribution_day_of_year := ts - floor((ts-1)/365) * 365]
+itn_cov[,ts := NULL]
 
 
 # Aggregate up to admin 1 level for plotting ------------------------------
@@ -237,30 +203,9 @@ admin_1 <- admin_1[,.(country, iso3c, name_1, name_2,
                       source, itn_use)]
 
 itn_cov <- rbind(itn_cov[,level := 'adm_2'],
-                 admin_1)
+                 admin_1, fill = T)
 itn_cov[name_2 == 'Sembabule', name_2 := 'Ssembabule']
-itn_cov[,distribution_lower := 0]
-itn_cov[,distribution_upper := 1]
 
-get_mod_dist <- function(x){
-  netz::usage_to_model_distribution(
-    usage = as.numeric(x[['itn_use']]),
-    usage_timesteps =   as.numeric(x[['usage_day_of_year']]),
-    distribution_timesteps = as.numeric(x[['distribution_day_of_year']]),
-    distribution_lower = 0,
-    distribution_upper = 1,
-    net_loss_function = netz::net_loss_map,
-    half_life = 605.9
-  )
-}
-
-
-##this gets used as coverages within site:::add_itns()
-###really not sure how this is different than itn_use...
-for(name_2_in in unique(itn_cov$name_2)){
-  x <- apply(itn_cov[name_2== name_2_in & source != 'Distribution coverage',], 1, get_mod_dist)
-  itn_cov[name_2== name_2_in & source != 'Distribution coverage',itn_input_dist := x]
-}
 
 saveRDS(itn_cov, './llin.RDS')
 

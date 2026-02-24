@@ -12,7 +12,7 @@ library(readxl)
 
 # Dependencies
 orderly::orderly_shared_resource(
-  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
+  site.RDS = "raw_data/2026_02_18_UGA_SNT_sitefile.rds"
 )
 
 orderly::orderly_dependency(
@@ -31,6 +31,8 @@ orderly::orderly_dependency(
     inc_adj_dt.RDS = "formatted_yearly_inc_adj.RDS"
   )
 )
+
+site <- readRDS("site.RDS")
 
 #country (char), iso3c (char), name_1 (char), name_2 (char), year (int), tx_cov (num)
 #disagg_dt <- readRDS(paste0(getwd(), '/archive/process_raw_data/', list.files(paste0(getwd(), '/archive/process_raw_data/'))[length(list.files(paste0(getwd(), '/archive/process_raw_data/')))], '/formatted_disagg_data.RDS'))

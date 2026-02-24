@@ -1,19 +1,20 @@
 library(orderly)
 library(hipercow)
 
-################################################################################
-##Hipercow set up
-################################################################################
+
+# Hipercow setup ----------------------------------------------------------
 hipercow::hipercow_init(driver = "dide-windows")
 #hipercow::hipercow_provision(driver = "dide-windows")
 resources_in <- hipercow_resources(cores = 2)
 options(hipercow.max_size_local = Inf)
-# source_files <- list.files("./src/", recursive = T, full.names = T)
+source_files <- c('./src/calibration/calibration_utils.R')
 # hipercow::hipercow_environment_create(sources = source_files)
+##set up for districts
+site <- readRDS('./shared/raw_data/2026_02_18_UGA_SNT_sitefile.rds')
 
-################################################################################
-##Orderly set up, does not need to be run again
-################################################################################
+
+# Orderly set up, does not need to be run again  --------------------------
+#orderly_init(use_file_store = T)
 # orderly::orderly_new("process_raw_data",template = F)
 # orderly::orderly_new("site_file",template = F)
 # orderly::orderly_new("tx_cov",template = F)
@@ -22,14 +23,11 @@ options(hipercow.max_size_local = Inf)
 # orderly::orderly_new("irs",template = F)
 # orderly::orderly_new("gen_new_site",template = F)
 # orderly::orderly_new("calibration",template = F)
+# orderly::orderly_new("process_calibration",template = F)
 # orderly::orderly_new("plots",template = F)
 
 
-################################################################################
-##Run historical intervention input options
-###NOTE: this could be run interactively, but R is so slow on the shared drive
-################################################################################
-#orderly::orderly_run("site_file")
+# Process data ------------------------------------------------------------
 ##Process raw data
 process_raw_data <- task_create_expr(orderly::orderly_run(name = "process_raw_data"),
                                      resources = resources_in)
@@ -39,6 +37,8 @@ while(task_status(process_raw_data) %in% c('running', 'submitted')){
 }
 task_result(process_raw_data)
 
+
+# Prep historical interventions -------------------------------------------
 ##Treatment coverage
 tx_cov <- task_create_expr(orderly::orderly_run(name = "tx_cov"),
                                      resources = resources_in)
@@ -84,6 +84,8 @@ while(task_status(itn) %in% c('running', 'submitted')){
 }
 task_result(itn)
 
+
+# Update site file with intervention modifications ------------------------
 ##new site
 new_site <- task_create_expr(orderly::orderly_run(name = "gen_new_site"),
                         resources = resources_in)
@@ -93,7 +95,28 @@ while(task_status(new_site) %in% c('running', 'submitted')){
 }
 task_result(new_site)
 
-##Plots
+# Calibrate EIR -----------------------------------------------------------
+cali <- task_create_expr(orderly::orderly_run(name = "calibration"),
+                         resources = hipercow_resources(cores = 20),
+                         parallel = hipercow_parallel("parallel"))
+
+while(task_status(cali) %in% c('running', 'submitted')){
+  print('Waiting for calibration to finish')
+  Sys.sleep(5)
+}
+task_result(cali)
+
+
+# Combine calibrated results ----------------------------------------------
+combine <- task_create_expr(orderly::orderly_run(name = "process_calibration"),
+                             resources = resources_in)
+while(task_status(combine) %in% c('running', 'submitted')){
+  print('Waiting for combined results to finish')
+  Sys.sleep(5)
+}
+task_result(combine)
+
+# Plot outputs for vetting ------------------------------------------------
 ##TODO: figure out why tx_cov isn't working??
 plots <- task_create_expr(orderly::orderly_run(name = "plots"),
                         resources = resources_in)

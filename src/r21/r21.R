@@ -18,7 +18,7 @@ orderly::orderly_dependency(
 )
 
 orderly::orderly_shared_resource(
-  site.RDS = "raw_data/2026_01_19_UGA_SNT_sitefile.rds"
+  site.RDS = "raw_data/2026_02_18_UGA_SNT_sitefile.rds"
 )
 
 

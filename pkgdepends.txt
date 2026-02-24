@@ -10,6 +10,9 @@ cran::reshape2
 
 
 #url
-git::https://github.com/mrc-ide/malariasimulation
-git::https://github.com/mrc-ide/site
+git::https://github.com/mrc-ide/malariasimulation/@dev
+git::https://github.com/mrc-ide/site/@site-2601
 git::https://github.com/mrc-ide/cali
+git::https://github.com/mrc-ide/netz/@site-2601
+git::https://github.com/mrc-ide/postie
+
