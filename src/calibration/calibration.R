@@ -1,3 +1,5 @@
+##setwd('Z:/Maggie/uga_snt/src/calibration/')
+
 ##orderly resources
 orderly::orderly_dependency(
   name = "gen_new_site",
@@ -14,9 +16,10 @@ orderly2::orderly_resource(
 site_in <- readRDS("new_site.RDS")
 
 dists <- unique(site_in$sites$name_2)
-dists = c("Apac", 'Dokolo', 'Amolatar', 'Kalaki', 'Kaberamaido')
 dir_in = getwd()
-parallel::clusterApply(cl = NULL, dists, cali_function, site = site_in,
+parallel::clusterApply(cl = NULL, dists,
+                       cali_function,
+                       site = site_in,
                        dir = dir_in)
 
 

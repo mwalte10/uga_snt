@@ -1,0 +1,21 @@
+country,iso3c,name_1,name_2,smc_min_age,smc_max_age,age,year,round,round_day_of_year,low_level,variable,value,source
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2021,1,91,adm_1,Malaria Consortium report,NA,Table 11 and 14 https://www.malariaconsortium.org/media-library/media-files/20220424094822021smccoveragereport.pdf#page=33.08
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2021,2,136,adm_1,Malaria Consortium report,0.961,Table 11 and 14 https://www.malariaconsortium.org/media-library/media-files/20220424094822021smccoveragereport.pdf#page=33.09
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2021,3,182,adm_1,Malaria Consortium report,NA,Table 11 and 14 https://www.malariaconsortium.org/media-library/media-files/20220424094822021smccoveragereport.pdf#page=33.10
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2021,4,227,adm_1,Malaria Consortium report,NA,Table 11 and 14 https://www.malariaconsortium.org/media-library/media-files/20220424094822021smccoveragereport.pdf#page=33.11
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2021,5,273,adm_1,Malaria Consortium report,0.959,Table 11 and 14 https://www.malariaconsortium.org/media-library/media-files/20220424094822021smccoveragereport.pdf#page=33.12
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2022,1,91,adm_1,Malaria Consortium report,0.988,Table 23 https://www.malariaconsortium.org/media-library/media-files/2023042512192022malariaconsortiumsmccoveragereport.pdf#page=57.47
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2022,2,136,adm_1,Malaria Consortium report,0.933,Table 23 https://www.malariaconsortium.org/media-library/media-files/2023042512192022malariaconsortiumsmccoveragereport.pdf#page=57.47
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2022,3,182,adm_1,Malaria Consortium report,0.982,Table 23 https://www.malariaconsortium.org/media-library/media-files/2023042512192022malariaconsortiumsmccoveragereport.pdf#page=57.47
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2022,4,227,adm_1,Malaria Consortium report,NA,Table 23 https://www.malariaconsortium.org/media-library/media-files/2023042512192022malariaconsortiumsmccoveragereport.pdf#page=57.47
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2022,5,273,adm_1,Malaria Consortium report,0.997,Table 23 https://www.malariaconsortium.org/media-library/media-files/2023042512192022malariaconsortiumsmccoveragereport.pdf#page=57.47
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2023,1,91,adm_1,Malaria Consortium report,1,Table 31 https://files.givewell.org//files/DWDA%202009/Malaria%20Consortium/1%20SMC%20Philanthropy%20report%202023%20%281%29.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2023,2,136,adm_1,Malaria Consortium report,0.98,Table 31 https://files.givewell.org//files/DWDA%202009/Malaria%20Consortium/1%20SMC%20Philanthropy%20report%202023%20%281%29.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2023,3,182,adm_1,Malaria Consortium report,0.99,Table 31 https://files.givewell.org//files/DWDA%202009/Malaria%20Consortium/1%20SMC%20Philanthropy%20report%202023%20%281%29.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2023,4,227,adm_1,Malaria Consortium report,0.98,Table 31 https://files.givewell.org//files/DWDA%202009/Malaria%20Consortium/1%20SMC%20Philanthropy%20report%202023%20%281%29.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2023,5,273,adm_1,Malaria Consortium report,0.999,Table 31 https://files.givewell.org//files/DWDA%202009/Malaria%20Consortium/1%20SMC%20Philanthropy%20report%202023%20%281%29.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2024,1,91,adm_1,Malaria Consortium report,0.994,Table 26 https://www.malariaconsortium.org/assets/global/2024-SMC-Coverage-Report.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2024,2,136,adm_1,Malaria Consortium report,0.972,Table 26 https://www.malariaconsortium.org/assets/global/2024-SMC-Coverage-Report.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2024,3,182,adm_1,Malaria Consortium report,0.984,Table 26 https://www.malariaconsortium.org/assets/global/2024-SMC-Coverage-Report.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2024,4,227,adm_1,Malaria Consortium report,0.967,Table 26 https://www.malariaconsortium.org/assets/global/2024-SMC-Coverage-Report.pdf
+Uganda,UGA,Karamoja,Karamoja,0,1460,<5,2024,5,273,adm_1,Malaria Consortium report,0.967,Table 26 https://www.malariaconsortium.org/assets/global/2024-SMC-Coverage-Report.pdf

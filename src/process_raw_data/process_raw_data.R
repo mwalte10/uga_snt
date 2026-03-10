@@ -6,7 +6,7 @@ library(readxl)
 
 # shared data and code files:
 orderly::orderly_shared_resource(
-  disagg_dt.csv = "raw_data/New_disagg_data_cleaned_19_12_25.csv"
+  disagg_dt.csv = "raw_data/New_disagg_data_cleaned_20022026.csv"
 )
 
 orderly::orderly_shared_resource(
@@ -15,6 +15,10 @@ orderly::orderly_shared_resource(
 
 orderly::orderly_shared_resource(
   SMC.xls = "raw_data/SMC.xls"
+)
+
+orderly::orderly_shared_resource(
+  SMC_2025.csv = "raw_data/smc_2025.csv"
 )
 
 orderly::orderly_shared_resource(
@@ -126,6 +130,13 @@ smc[grepl('7-10 years', variable),age := '7-10']
 smc <- smc[,.(country, iso3c, name_1, name_2 = gsub(pattern = ' District',
                                                     replacement = '',
                                                     name_2), name_3, periodname, sex, age, value)]
+
+
+smc_2025 <- data.table::fread("SMC_2025.csv")
+smc[,low_level := 'adm_2']
+smc <- rbind(smc_2025, smc, fill = T)
+
+
 ##Aggregate up to the admin_1 level
 smc_adm1 <- copy(smc)
 smc_adm1[,name_2 := name_1]
@@ -133,3 +144,8 @@ smc <- rbind(smc[,low_level := 'adm_2'],
              smc_adm1[,low_level := 'adm_1'])
 
 saveRDS(smc, 'formatted_smc.RDS')
+
+
+# 2025 data ---------------------------------------------------------------
+smc_2025
+

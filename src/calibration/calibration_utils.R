@@ -1,5 +1,65 @@
 #site <- readRDS(paste0(getwd(), '/archive/gen_new_site/', list.files(paste0(getwd(), '/archive/gen_new_site/'))[length(list.files(paste0(getwd(), '/archive/gen_new_site/')))], '/new_site.RDS'))
 
+get_annual_prev <- function(x, cali_years){
+  prev <- data.table::data.table(postie::get_prevalence(x))
+  prev <- prev[,.(prev = mean(lm_prevalence_0_5)), by = c('year')]
+  prev <- prev[year %in% c(2009,2014,2018,2024)]
+  return(prev$prev)
+}
+
+urbanicity_func <- function(urbanicity_in, site, name_2_in, dir){
+  site_adm2 <- site::subset_site(
+    site = site,
+    site_filter = data.frame(
+      country = 'Uganda',
+      iso3c = 'UGA',
+      name_1 = unique(data.table::data.table(site$sites)[name_2 == name_2_in, name_1]),
+      name_2 = name_2_in,
+      urban_rural = urbanicity_in
+    )
+  )
+  site_adm2$interventions$treatment$implementation$day_of_year = 1
+
+
+  site_par_adm2 <- site::site_parameters(
+    interventions = site_adm2$interventions,
+    demography = site_adm2$demography,
+    vectors = site_adm2$vectors,
+    seasonality = site_adm2$seasonality,
+    eir = 20,
+    overrides = list(
+      human_population = 5000
+    ),
+    start_year = 2000,
+    end_year = 2025,
+    irs_adjust = 0.6
+  )
+  site_par_adm2$prevalence_rendering_min_ages <- 0
+  site_par_adm2$prevalence_rendering_max_ages <- 1824
+
+
+  set.seed(925)
+
+  cali_years = c(2009,2014,2018,2024)
+
+  ##Can use prevalence_rendering_ages to get LM values for other ages
+  out <- cali::calibrate(
+    parameters = site_par_adm2,
+    target = data.table::data.table(site_adm2$prevalence)[year %in% cali_years,pfpr],
+    summary_function = get_annual_prev,
+    eq_prevalence = data.table::data.table(site_adm2$prevalence)[year %in% c(2000),pfpr]
+  )
+
+  site_par_adm2$human_population <- 5000
+  parameters <- malariasimulation::set_equilibrium(site_par_adm2, init_EIR = out)
+  raw <- malariasimulation::run_simulation(parameters$timesteps + 100, parameters = parameters)
+
+  ##consider putting the cluster task in here so that the same archive folder is used for all locations
+  saveRDS(list(parameters = parameters,
+               sim_out = raw),
+          file = paste0(dir, '/', name_2_in, '_', urbanicity_in, '.RDS'))
+}
+
 cali_function <- function(name_2_in, site, dir){
 
   ##Replace broken site file characteristics
@@ -26,61 +86,7 @@ cali_function <- function(name_2_in, site, dir){
   site$interventions$itn$implementation <- data.frame(itn_imp)
 
   urbanicity <- unique(data.table::data.table(site$sites)[name_2 == name_2_in, urban_rural])
-  if(length(urbanicity) > 1){
-    urbanicity = 'rural'
-  }
+  lapply(urbanicity, urbanicity_func, site = site, name_2_in = name_2_in, dir = dir)
 
-  site_adm2 <- site::subset_site(
-    site = site,
-    site_filter = data.frame(
-      country = 'Uganda',
-      iso3c = 'UGA',
-      name_1 = unique(data.table::data.table(site$sites)[name_2 == name_2_in, name_1]),
-      name_2 = name_2_in,
-      urban_rural = urbanicity
-    )
-  )
-  site_adm2$interventions$treatment$implementation$day_of_year = 1
-
-  site_par_adm2 <- site::site_parameters(
-    interventions = site_adm2$interventions,
-    demography = site_adm2$demography,
-    vectors = site_adm2$vectors,
-    seasonality = site_adm2$seasonality,
-    eir = 20,
-    overrides = list(
-      human_population = 5000
-    ),
-    start_year = 2000,
-    end_year = 2025,
-    irs_adjust = 0.6
-  )
-
-  set.seed(925)
-
-  cali_years = c(2000,2006,2009,2011,2014,2016,2018)
-
-  get_annual_prev <- function(x){
-    prev <- data.table::data.table(postie::get_prevalence(x))
-    prev <- prev[,.(prev = mean(lm_prevalence_2_10)), by = c('year')]
-    prev <- prev[year %in% cali_years]
-    return(prev$prev)
-  }
-
-  out <- cali::calibrate(
-    parameters = site_par_adm2,
-    target = data.table::data.table(site_adm2$prevalence)[year %in% cali_years,pfpr],
-    summary_function = get_annual_prev,
-    eq_prevalence = data.table::data.table(site_adm2$prevalence)[year %in% c(2000),pfpr]
-  )
-
-  site_par_adm2$human_population <- 5000
-  parameters <- malariasimulation::set_equilibrium(site_par_adm2, init_EIR = out)
-  raw <- malariasimulation::run_simulation(parameters$timesteps + 100, parameters = parameters)
-
-  ##consider putting the cluster task in here so that the same archive folder is used for all locations
-  saveRDS(list(parameters = parameters,
-               sim_out = raw),
-          file = paste0(dir, '/', name_2_in, '.RDS'))
 }
 

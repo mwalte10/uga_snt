@@ -1,3 +1,4 @@
+#setwd('Z:/Maggie/uga_snt/src/smc/')
 library(tidyverse)
 library(ggplot2)
 library(data.table)
@@ -78,7 +79,8 @@ smc[,age := paste0(smc_min_age/365,'-',smc_max_age/365)]
 pop_by_age <- data.table(site$population$population_by_age)
 pop_by_age <- rbind(copy(pop_by_age)[age_lower %in% 0:4,age:= '0-4'],
                     copy(pop_by_age)[age_lower %in% 0:10,age:= '0-10'],
-                    copy(pop_by_age)[age_lower %in% 5:10,age:= '5-10'])
+                    copy(pop_by_age)[age_lower %in% 5:10,age:= '5-10'],
+                    copy(pop_by_age)[age_lower %in% 0:5,age:= '0-5'])
 pop_by_age <- pop_by_age[!is.na(age),.(pop = sum(par_pf), low_level = 'adm_2'), by = c('country', 'iso3c', 'name_1', 'name_2',
                                                                                        'year', 'age')]
 

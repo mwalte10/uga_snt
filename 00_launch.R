@@ -1,3 +1,4 @@
+#setwd("Z:/Maggie/uga_snt")
 library(orderly)
 library(hipercow)
 
@@ -21,79 +22,100 @@ site <- readRDS('./shared/raw_data/2026_02_18_UGA_SNT_sitefile.rds')
 # orderly::orderly_new("smc",template = F)
 # orderly::orderly_new("r21",template = F)
 # orderly::orderly_new("irs",template = F)
+# orderly::orderly_new("resistance",template = F)
 # orderly::orderly_new("gen_new_site",template = F)
+# orderly::orderly_new("format_comparison_data",template = F)
 # orderly::orderly_new("calibration",template = F)
 # orderly::orderly_new("process_calibration",template = F)
 # orderly::orderly_new("plots",template = F)
+# orderly::orderly_new("gen_scenario_site_files",template = F)
+
+
 
 
 # Process data ------------------------------------------------------------
 ##Process raw data
-process_raw_data <- task_create_expr(orderly::orderly_run(name = "process_raw_data"),
-                                     resources = resources_in)
-while(task_status(process_raw_data) %in% c('running', 'submitted')){
-  print('Waiting for prep inputs to finish')
-  Sys.sleep(5)
-}
-task_result(process_raw_data)
-
+# process_raw_data <- task_create_expr(orderly::orderly_run(name = "process_raw_data"),
+#                                      resources = resources_in)
+# while(task_status(process_raw_data) %in% c('running', 'submitted')){
+#   print('Waiting for prep inputs to finish')
+#   Sys.sleep(5)
+# }
+# task_result(process_raw_data)
+orderly::orderly_run(name = "process_raw_data")
 
 # Prep historical interventions -------------------------------------------
 ##Treatment coverage
-tx_cov <- task_create_expr(orderly::orderly_run(name = "tx_cov"),
-                                     resources = resources_in)
-while(task_status(tx_cov) %in% c('running', 'submitted')){
-  print('Waiting for treatment coverage to finish')
-  Sys.sleep(5)
-}
-task_result(tx_cov)
+# tx_cov <- task_create_expr(orderly::orderly_run(name = "tx_cov"),
+#                                      resources = resources_in)
+# while(task_status(tx_cov) %in% c('running', 'submitted')){
+#   print('Waiting for treatment coverage to finish')
+#   Sys.sleep(5)
+# }
+# task_result(tx_cov)
+orderly::orderly_run(name = "tx_cov")
 
 ##SMC
-smc <- task_create_expr(orderly::orderly_run(name = "smc"),
-                           resources = resources_in)
-while(task_status(smc) %in% c('running', 'submitted')){
-  print('Waiting for SMC coverage to finish')
-  Sys.sleep(5)
-}
-task_result(smc)
+# smc <- task_create_expr(orderly::orderly_run(name = "smc"),
+#                            resources = resources_in)
+# while(task_status(smc) %in% c('running', 'submitted')){
+#   print('Waiting for SMC coverage to finish')
+#   Sys.sleep(5)
+# }
+# task_result(smc)
+orderly::orderly_run(name = "smc")
 
 ##R21
-r21 <- task_create_expr(orderly::orderly_run(name = "r21"),
-                        resources = resources_in)
-while(task_status(r21) %in% c('running', 'submitted')){
-  print('Waiting for R21 coverage to finish')
-  Sys.sleep(5)
-}
-task_result(r21)
+# r21 <- task_create_expr(orderly::orderly_run(name = "r21"),
+#                         resources = resources_in)
+# while(task_status(r21) %in% c('running', 'submitted')){
+#   print('Waiting for R21 coverage to finish')
+#   Sys.sleep(5)
+# }
+# task_result(r21)
+orderly::orderly_run(name = "r21")
 
 ##IRS
-irs <- task_create_expr(orderly::orderly_run(name = "irs"),
-                        resources = resources_in)
-while(task_status(irs) %in% c('running', 'submitted')){
-  print('Waiting for IRS coverage to finish')
-  Sys.sleep(5)
-}
-task_result(irs)
+# irs <- task_create_expr(orderly::orderly_run(name = "irs"),
+#                         resources = resources_in)
+# while(task_status(irs) %in% c('running', 'submitted')){
+#   print('Waiting for IRS coverage to finish')
+#   Sys.sleep(5)
+# }
+# task_result(irs)
+orderly::orderly_run(name = "irs")
 
 ##itn
-itn <- task_create_expr(orderly::orderly_run(name = "itn"),
-                        resources = resources_in)
-while(task_status(itn) %in% c('running', 'submitted')){
-  print('Waiting for ITN coverage to finish')
-  Sys.sleep(5)
-}
-task_result(itn)
+# itn <- task_create_expr(orderly::orderly_run(name = "itn"),
+#                         resources = resources_in)
+# while(task_status(itn) %in% c('running', 'submitted')){
+#   print('Waiting for ITN coverage to finish')
+#   Sys.sleep(5)
+# }
+# task_result(itn)
+orderly::orderly_run(name = "itn")
 
+##Insecticide resistnace
+# resistance <- task_create_expr(orderly::orderly_run(name = "resistance"),
+#                         resources = resources_in)
+# while(task_status(itn) %in% c('running', 'submitted')){
+#   print('Waiting for resistance to finish')
+#   Sys.sleep(5)
+# }
+# task_result(resistance)
+orderly::orderly_run(name = "resistance")
 
 # Update site file with intervention modifications ------------------------
 ##new site
-new_site <- task_create_expr(orderly::orderly_run(name = "gen_new_site"),
-                        resources = resources_in)
-while(task_status(new_site) %in% c('running', 'submitted')){
-  print('Waiting for new site generation to finish')
-  Sys.sleep(5)
-}
-task_result(new_site)
+# new_site <- task_create_expr(orderly::orderly_run(name = "gen_new_site"),
+#                         resources = resources_in)
+# while(task_status(new_site) %in% c('running', 'submitted')){
+#   print('Waiting for new site generation to finish')
+#   Sys.sleep(5)
+# }
+# task_result(new_site)
+orderly::orderly_run(name = "gen_new_site")
+orderly::orderly_run(name = "format_comparison_data")
 
 # Calibrate EIR -----------------------------------------------------------
 cali <- task_create_expr(orderly::orderly_run(name = "calibration"),
@@ -125,3 +147,11 @@ while(task_status(plots) %in% c('running', 'submitted')){
   Sys.sleep(5)
 }
 task_result(plots)
+orderly::orderly_run(name = "plots")
+
+
+
+# Generate scenario inputs ------------------------------------------------
+orderly::orderly_run(name = "scenario_input_list")
+##put int site files (just to make plotting easier)
+

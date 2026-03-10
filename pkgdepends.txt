@@ -7,6 +7,10 @@ cran::ggplot2
 cran::assertthat
 cran::ggpubr
 cran::reshape2
+cran::geofacet
+cran::cowplot
+cran::gridExtra
+cran::orderly
 
 
 #url

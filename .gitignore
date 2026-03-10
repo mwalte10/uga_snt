@@ -1,6 +1,11 @@
 .Rproj.user
 .Rhistory
 .RData
+.RDS
+.xlsx
+.pdf
+.PDF
+.csv
 .Ruserdata
 .Rproj
 shared

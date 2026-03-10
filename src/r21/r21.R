@@ -1,3 +1,4 @@
+#setwd('Z:/Maggie/uga_snt/src/r21/')
 library(tidyverse)
 library(ggplot2)
 library(data.table)
@@ -63,7 +64,7 @@ r21_dt_2026 <- r21_dt[year == 2025,.(country, iso3c, year, name_1, name_2, low_l
                                      variable, value = value * (12/8), par_pf = par_pf)]
 r21_dt_2026[,r21_cov := value / par_pf]
 r21_dt_2026[,year := 2026]
-r21_dt <- rbind(r21_dt, r21_dt_2026)
+r21_dt <- rbind(r21_dt[year!= 2026], r21_dt_2026)
 
 
 # Assume that booster dropout is equal to dose 2-3 dropout ----------------
@@ -74,6 +75,8 @@ dropout <- r21_dt[variable %in% c('Malaria_vaccine_2', 'Malaria_vaccine_3') &
                                                                               variable, r21_cov)]
 dropout <- dcast(dropout, country + iso3c + year + name_1 + name_2 + low_level ~ variable, value.var = 'r21_cov')
 dropout[,do := Malaria_vaccine_3 / Malaria_vaccine_2]
+##Rough approximation for instances where we don't have good insight into expected dropout from 2nd to 3rd dose
+dropout[do>1, do := mean(dropout[do<1,do])]
 dropout[,Malaria_vaccine_booster := Malaria_vaccine_3 * do]
 booster <- dropout[,.(country, iso3c, year = 2026, name_1, name_2, low_level,
                       r21_booster1_cov = Malaria_vaccine_booster)]
