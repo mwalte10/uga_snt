@@ -6,13 +6,14 @@ library(hipercow)
 # Hipercow setup ----------------------------------------------------------
 hipercow::hipercow_init(driver = "dide-windows")
 #hipercow::hipercow_provision(driver = "dide-windows")
-resources_in <- hipercow_resources(cores = 2)
+resources_in <- hipercow_resources(cores = 20)
 options(hipercow.max_size_local = Inf)
-source_files <- c('./src/calibration/calibration_utils.R')
-# hipercow::hipercow_environment_create(sources = source_files)
+source_files <- c('./src/calibration/calibration_utils.R',
+                  './src/scenario_input_list/scenario_input_list_utils.R')
+hipercow::hipercow_environment_create(sources = source_files)
 ##set up for districts
 site <- readRDS('./shared/raw_data/2026_02_18_UGA_SNT_sitefile.rds')
-
+loc_map <- data.table::data.table(site$sites)[,.(name_1,name_2)]
 
 # Orderly set up, does not need to be run again  --------------------------
 #orderly_init(use_file_store = T)
@@ -29,7 +30,7 @@ site <- readRDS('./shared/raw_data/2026_02_18_UGA_SNT_sitefile.rds')
 # orderly::orderly_new("process_calibration",template = F)
 # orderly::orderly_new("plots",template = F)
 # orderly::orderly_new("gen_scenario_site_files",template = F)
-
+# orderly::orderly_new("plot_scenario_inputs",template = F)
 
 
 
@@ -152,6 +153,39 @@ orderly::orderly_run(name = "plots")
 
 
 # Generate scenario inputs ------------------------------------------------
-orderly::orderly_run(name = "scenario_input_list")
-##put int site files (just to make plotting easier)
+scen_inputs <- task_create_expr(orderly::orderly_run(name = "scenario_input_list"),
+                          resources = resources_in)
+while(task_status(scen_inputs) %in% c('running', 'submitted')){
+  print('Waiting for ploting to finish')
+  Sys.sleep(5)
+}
+##put into site files (just to make plotting easier)
+task_create_expr(orderly::orderly_run(name = "gen_scenario_site_files"),
+                 resources = resources_in)
+task_create_expr(orderly::orderly_run(name =  "plot_scenario_inputs"),
+                  resources = resources_in)
+# orderly::orderly_run(name = "gen_scenario_site_files")
+# orderly::orderly_run(name = "plot_scenario_inputs")
+
+
+# Sub in calibrated EIRS ------------------------------------------------
+orderly::orderly_run(name = "insert_calib_eir")
+
+# Run scenarios ------------------------------------------------
+task_create_expr(orderly::orderly_run(name = "run_scenario"),
+                 resources = hipercow_resources(cores = 20),
+                 parallel = hipercow_parallel("parallel"))
+
+args <- CJ(name_2 = unique(loc_map$name_2), index = 1:324)
+
+for(name_2_in in unique(args$name_2)[84:146]){
+  args_in <- args[name_2 == name_2_in,]
+  bundle <- task_create_bulk_call(
+    fn = function(name_2_in,index_in)
+    orderly::orderly_run("run_scenario", parameters = list(name_2 = name_2_in, index = index_in)),
+    data = args_in,
+    resources = hipercow_resources(cores = 10),
+    parallel = hipercow_parallel("parallel"))
+}
+
 

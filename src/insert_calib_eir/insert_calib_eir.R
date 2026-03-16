@@ -25,5 +25,6 @@ eir <- readRDS("eir.RDS")
 site_eir <- data.table(site$eir)
 site_eir[,eir := NULL]
 site_eir <- merge(site_eir, eir, by = c('name_2', 'urban_rural'), all.x = T, all.y = T)
+site$eir <- data.frame(site_eir)
 
-saveRDS(site_eir, 'calib_site.RDS')
+saveRDS(site, 'calib_site.RDS')

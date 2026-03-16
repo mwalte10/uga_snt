@@ -110,11 +110,11 @@ resistance <- readRDS("insect_resist.RDS")
 
 
 ##Assuming that all sites are rural right now, which is wrong but just want to test pipeline
-prop_act <- data.table(site$interventions$treatment$implementation)[,.(name_2, urban_rural, year, prop_act)]
+prop_act <- data.table(site$interventions$treatment$implementation)[,.(prop_act = mean(prop_act)), by= c('name_2', 'year')]
 tx <- tx[source == 'adj_map' &
             low_level == 'adm_2',.(country, iso3c, name_1, name_2,
-                                   urban_rural, year, tx_cov = value)]
-tx <- merge(tx, prop_act, by = c('name_2', 'urban_rural', 'year'))
+                                   year, tx_cov = value)]
+tx <- merge(tx, prop_act, by = c('name_2', 'year'))
 tx <- tx[,.(tx_cov = mean(tx_cov),
             prop_act = mean(prop_act)), by = c('country', 'iso3c', 'year', 'name_1', 'name_2')]
 

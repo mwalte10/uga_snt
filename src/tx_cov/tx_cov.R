@@ -82,6 +82,10 @@ tx_cov <- merge(tx_cov[,.(country, iso3c, year, month, name_1, name_2,
 tx_cov[,tx_cov_N1 := Total_Cases_treated / N1]
 tx_cov[,tx_cov_N2 := Total_Cases_treated / N2]
 test = copy(tx_cov)
+test_avg <- copy(tx_cov)
+test_avg <- test_avg[,.(tx_cov_N2 = mean(tx_cov_N2))]
+
+
 tx_cov <- data.table(reshape2::melt(tx_cov[,.(country, iso3c, name_1, name_2, low_level,
                                               year, month,
                                               tx_cov_baseline, tx_cov_fever,
@@ -114,7 +118,7 @@ tx_cov <- data.table(reshape2::melt(tx_cov[,.(country, iso3c, name_1, name_2, lo
 ##Need to clean this up, consider changing to intercept shifting to 2021
 # tx_cov <- readRDS(paste0(getwd(), '/archive/tx_cov/', list.files(paste0(getwd(), '/archive/tx_cov/'))[length(list.files(paste0(getwd(), '/archive/tx_cov/')))], '/tx_cov.RDS'))
 map <- data.table(site$interventions$treatment$implementation)
-map <- map[year == 2020,.(name_1, name_2, urban_rural, year, tx_cov)]
+map <- map[,.(name_1, name_2, urban_rural, year, tx_cov)]
 pop <- data.table(site$population$population_total)[,.(country, iso3c, name_1, name_2,
                                                        urban_rural, year, par_pf)]
 
@@ -126,27 +130,19 @@ tx_cov_avg <- tx_cov[variable == 'tx_cov_N2' &
                                                                         'name_1',
                                                                         'name_2',
                                                                         'low_level')]
+tx_cov_avg[,scalar := value / test_avg$tx_cov_N2]
+tx_cov_avg[,value := NULL]
 
 test <- merge(map, tx_cov_avg, by = c('name_1', 'name_2'), allow.cartesian = T)
-test[,map_minus_dhis2 := tx_cov - value]
-test <- test[,.(name_1, name_2, urban_rural, map_minus_dhis2)]
-new <- merge(data.table(site$interventions$treatment$implementation),
-             test, by = c('name_1', 'name_2', 'urban_rural'),
-             )
-new[,tx_cov := tx_cov - map_minus_dhis2]
-tx_cov_mean <- tx_cov[variable == 'tx_cov_N2',.(country, iso3c, name_1,
-                                                name_2,
-                                                year,
-                                                urban_rural = NA, low_level,
-                                                value, source = 'dhis2')]
-tx_cov_mean <- tx_cov_mean[,.(value = mean(value)), by = c('country', 'iso3c', 'name_1', 'name_2',
-                                                           'year', 'urban_rural', 'low_level', 'source')]
-new <- rbind(new[,.(country, iso3c, name_1,
-                    name_2, urban_rural, low_level = 'adm_2',
+test[,tx_cov := tx_cov * scalar]
+test <- test[,.(name_1, name_2, year, tx_cov)]
+
+new <- rbind(test[,.(country = 'Uganda', iso3c = 'UGA', name_1,
+                    name_2,
+                    low_level = 'adm_2',
                     year,
                     value = tx_cov,
-                    source = 'adj_map')],
-             tx_cov_mean)
+                    source = 'adj_map')])
 saveRDS(new, 'tx_cov.RDS')
 
 

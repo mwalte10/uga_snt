@@ -91,19 +91,20 @@ mda[,distribution_upper := 1]
 mda <- mda[,.(year, name_2, day_of_year, distribution_lower, distribution_upper)]
 mda[,dist_timestep := (year - 2000) * 365 + day_of_year]
 mda <- mda[,.(name_2, dist_timestep, distribution_lower, distribution_upper)]
-##add on routine distributions, assume they happen 3 times a year and can reach 50% of the population
+##add on routine distributions, assume they happen 3 times a year and can reach 3.33% of the population
 rt <- data.table(expand.grid(list(name_2 = as.character(unique(mda$name_2)),
                                   dist_timestep =  sort(c(365 * (0:25) + 2,
                                                      365 * (0:25) + 90,
-                                                     365 * (0:25) + 180)),
+                                                     365 * (0:25) + 180,
+                                                     365 * (0:25) + 270)),
                                   distribution_lower = 0,
-                                  distribution_upper = 0.1)))
+                                  distribution_upper = 0.1/4)))
 ##confirmed there was a net campaign in 2010, going to give that a lower distribution_lower (0.2)
 #https://europepmc.org/article/ppr/ppr545601
 ##actually only targeted children under 5 and ANC https://link.springer.com/article/10.1186/s12936-016-1360-0
 rt[dist_timestep %in% c(
                       #180 + 9 * 365,
-                        2 + 10 * 365, 90 + 10 * 365, 180 + 10 * 365#,
+                        2 + 10 * 365, 90 + 10 * 365, 180 + 10 * 365, 270 + 10 * 365
                        # 2 + 11 * 365
                         ),distribution_upper := 0.25]
 rt[,name_2 := as.character(name_2)]
@@ -194,7 +195,6 @@ save = copy(itn_cov)
 itn_cov <- copy(itn_cov)[,.(country = 'Uganda',
                       iso3c = 'UGA',
                       name_1, name_2,
-                      urban_rural = NA,
                       year = year,
                       itn_use = model_usage,
                       model_distribution = itn_input_dist,
@@ -229,7 +229,7 @@ admin_1 <- admin_1[,.(pop_use_itn = sum(pop_use_itn),
 admin_1[,itn_use := pop_use_itn / par_pf]
 admin_1 <- admin_1[,.(country, iso3c, name_1, name_2,
                       level = 'adm_1',
-                      year, urban_rural, usage_day_of_year, net_type,
+                      year, usage_day_of_year, net_type,
                       distribution_type, distribution_day_of_year,
                       source, itn_use)]
 

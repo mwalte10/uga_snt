@@ -43,6 +43,13 @@ orderly::orderly_dependency(
   )
 )
 
+orderly::orderly_dependency(
+  name = "resistance",
+  query = "latest()",
+  files = c(
+    insect_resist.RDS = "insect_resist.RDS"
+  )
+)
 
 ##load in data sources
 old_site <- readRDS("old_site.RDS")
@@ -189,38 +196,38 @@ for(name_2_in in districts){
   site_tx <- data.table::data.table(site$interventions$treatment$implementation)
   site_tx[,title := 'Treatment coverage']
 
-  tx_cov_plots <- list()
-  for(name_1_in in unique(tx_cov$name_1)){
-    tx_cov_plots[[name_1_in]] <- ggplot() +
-      geom_line(data = comp_tx[source == 'MAP' & name_1 == name_1_in &
-                                 low_level == 'adm_2' &
-                                 year %in% year_min:year_max &
-                                 name_2 %in% loc_map[name_1 == name_1_in, name_2]],
-                aes(ts, mean, col = source)) +
-      geom_line(data = comp_tx[source == 'MAP' & name_1 == name_1_in &
-                                 low_level == 'adm_2' &
-                                 year %in% year_min:year_max&
-                                 name_2 %in% loc_map[name_1 == name_1_in, name_2]],
-                aes(ts, mean*prop_act, col = source), lty = 2) +
-      geom_line(data = site_tx[name_1 == name_1_in &
-                                 year %in% year_min:year_max &
-                                 name_2 %in% loc_map[name_1 == name_1_in, name_2]],
-                aes(year, tx_cov), col = 'black') +
-      facet_wrap(~name_2) +
-      geom_point(data = comp_tx[source == 'NMED' & name_1 == name_1_in &
-                                  low_level == 'adm_2' &
-                                  year %in% year_min:year_max],
-                 aes(ts, mean, col = source), size = 2) +
-      geom_point(data = comp_tx[grepl('DHS', source) & name_1 == name_1_in &
-                                  name_2 %in% loc_map[name_1 == name_1_in, name_2]],
-                 aes(ts+0.5, mean, col = source, alpha = source, shape = source)) +
-      malaria_plot_theme(name_1 = name_1_in, y_lab = 'Treatment coverage')
-
-  }
-
-  pdf("tx_cov.pdf", width = 8, height = 8)
-  tx_cov_plots
-  dev.off()
+  # tx_cov_plots <- list()
+  # for(name_1_in in unique(tx_cov$name_1)){
+  #   tx_cov_plots[[name_1_in]] <- ggplot() +
+  #     geom_line(data = comp_tx[source == 'MAP' & name_1 == name_1_in &
+  #                                low_level == 'adm_2' &
+  #                                year %in% year_min:year_max &
+  #                                name_2 %in% loc_map[name_1 == name_1_in, name_2]],
+  #               aes(ts, mean, col = source)) +
+  #     geom_line(data = comp_tx[source == 'MAP' & name_1 == name_1_in &
+  #                                low_level == 'adm_2' &
+  #                                year %in% year_min:year_max&
+  #                                name_2 %in% loc_map[name_1 == name_1_in, name_2]],
+  #               aes(ts, mean*prop_act, col = source), lty = 2) +
+  #     geom_line(data = site_tx[name_1 == name_1_in &
+  #                                year %in% year_min:year_max &
+  #                                name_2 %in% loc_map[name_1 == name_1_in, name_2]],
+  #               aes(year, tx_cov), col = 'black') +
+  #     facet_wrap(~name_2) +
+  #     geom_point(data = comp_tx[source == 'NMED' & name_1 == name_1_in &
+  #                                 low_level == 'adm_2' &
+  #                                 year %in% year_min:year_max],
+  #                aes(ts, mean, col = source), size = 2) +
+  #     geom_point(data = comp_tx[grepl('DHS', source) & name_1 == name_1_in &
+  #                                 name_2 %in% loc_map[name_1 == name_1_in, name_2]],
+  #                aes(ts+0.5, mean, col = source, alpha = source, shape = source)) +
+  #     malaria_plot_theme(name_1 = name_1_in, y_lab = 'Treatment coverage')
+  #
+  # }
+  #
+  # pdf("tx_cov.pdf", width = 8, height = 8)
+  # tx_cov_plots
+  # dev.off()
 
   tx_cov_plots_admin2 <- list()
   for(name_2_in in districts){
@@ -253,39 +260,39 @@ site_smc[,ts := year + (round_day_of_year - 1) / 365]
 site_smc[,age_label := paste0(smc_min_age / 365, '-', smc_max_age/365)]
 site_smc$age_label <- factor(site_smc$age_label, levels = c('0-4', '5-10', '0-10'))
 
-smc_cov_plots <- list()
-smc_cov_plots[["Uganda"]] <-  ggplot(site_smc[low_level == 'adm_1',],
-                                     aes(x = ts,
-                                         y = smc_cov,
-                                         col = age_label)) +
-  geom_point(size = 2) + facet_wrap(~name_2) + theme_bw(base_size = 14) +
-  theme(legend.position = 'bottom', legend.box = 'vertical') +
-  geom_hline(yintercept = 1, col = 'grey') +
-  xlim(2020, year_max) +
-  geom_point(data = data.table(name_1 = unique(smc$name_1),
-                               year = 2020, smc_cov = 0), aes(year, smc_cov), col = NA) +
-  labs(x = NULL, y = 'SMC coverage', title = "Uganda", col = 'SMC eligibility') +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.25), limits = c(0, 1))
-
-
-for(name_1_in in unique(site_smc$name_1)){
-  smc_cov_plots[[name_1_in]] <-  ggplot(site_smc[low_level == 'adm_2' & name_1 == name_1_in,],
-                                        aes(x = ts,
-                                            y = smc_cov,
-                                            col = age_label)) +
-    geom_point(size = 2) + facet_wrap(~name_2) + theme_bw(base_size = 14) +
-    theme(legend.position = 'bottom', legend.box = 'vertical') +
-    geom_hline(yintercept = 1, col = 'grey') +
-    xlim(2020, year_max) +
-    geom_point(data = data.table(name_1 = unique(smc$name_1), year = 2020, smc_cov = 0), aes(year, smc_cov), col = NA) +
-    labs(x = NULL, y = 'SMC coverage', title = "Uganda", col = 'SMC eligibility')+
-    scale_y_continuous(breaks = seq(0, 1, by = 0.25), limits = c(0, 1))
-
-}
-
-pdf("smc_cov.pdf", width = 8, height = 6)
-unique(smc_cov_plots)
-dev.off()
+# smc_cov_plots <- list()
+# smc_cov_plots[["Uganda"]] <-  ggplot(site_smc[low_level == 'adm_1',],
+#                                      aes(x = ts,
+#                                          y = smc_cov,
+#                                          col = age_label)) +
+#   geom_point(size = 2) + facet_wrap(~name_2) + theme_bw(base_size = 14) +
+#   theme(legend.position = 'bottom', legend.box = 'vertical') +
+#   geom_hline(yintercept = 1, col = 'grey') +
+#   xlim(2020, year_max) +
+#   geom_point(data = data.table(name_1 = unique(smc$name_1),
+#                                year = 2020, smc_cov = 0), aes(year, smc_cov), col = NA) +
+#   labs(x = NULL, y = 'SMC coverage', title = "Uganda", col = 'SMC eligibility') +
+#   scale_y_continuous(breaks = seq(0, 1, by = 0.25), limits = c(0, 1))
+#
+#
+# for(name_1_in in unique(site_smc$name_1)){
+#   smc_cov_plots[[name_1_in]] <-  ggplot(site_smc[low_level == 'adm_2' & name_1 == name_1_in,],
+#                                         aes(x = ts,
+#                                             y = smc_cov,
+#                                             col = age_label)) +
+#     geom_point(size = 2) + facet_wrap(~name_2) + theme_bw(base_size = 14) +
+#     theme(legend.position = 'bottom', legend.box = 'vertical') +
+#     geom_hline(yintercept = 1, col = 'grey') +
+#     xlim(2020, year_max) +
+#     geom_point(data = data.table(name_1 = unique(smc$name_1), year = 2020, smc_cov = 0), aes(year, smc_cov), col = NA) +
+#     labs(x = NULL, y = 'SMC coverage', title = "Uganda", col = 'SMC eligibility')+
+#     scale_y_continuous(breaks = seq(0, 1, by = 0.25), limits = c(0, 1))
+#
+# }
+#
+# pdf("smc_cov.pdf", width = 8, height = 6)
+# unique(smc_cov_plots)
+# dev.off()
 
 smc_plots_admin2 <- list()
 for(name_2_in in districts){
@@ -348,41 +355,41 @@ site_r21 <- site_r21[r21_vaccine_dose == 'Malaria_vaccine_3',.(country, iso3c, y
 site_r21 <- data.table::data.table(reshape2::melt(site_r21, id.vars = c('country', 'iso3c', 'year', 'name_1', 'name_2', 'low_level')))
 site_r21[,title := 'R21 coverage']
 
-r21_cov_plots <- list()
-r21_cov_plots[['Uganda']] <- ggplot() +
-  theme_bw(base_size = 14) +
-  geom_point(data = site_r21[low_level == 'adm_1'],
-             aes(x = year , y = value,
-                 col = variable), size = 2) +
-  geom_line(data  = site_r21[low_level == 'adm_1'],
-            aes(x = year , y = value, group = variable)) +
-  geom_hline(data = comp_r21[source == 'DHS' & year == 2016 & low_level == 'adm_1' & name_1 == name_2],
-             aes(yintercept = mean)) + facet_wrap(~name_1) +
-  malaria_plot_theme(name_1 = NULL, y_lab = NULL, caption = NULL) +
-  scale_color_manual(values = c("r21_primary_cov" = colors[1],
-                                "r21_booster1_cov" = colors[3]))
-
-
-for(name_1_in in unique(r21_dt$name_1)){
-  r21_cov_plots[[name_1_in]] <-  ggplot() +
-    theme_bw(base_size = 14) +
-    geom_point(data = site_r21[low_level == 'adm_2' & name_1 == name_1_in,],
-               aes(x = year , y = value,
-                   col = variable), size = 2) +
-    geom_line(data  = site_r21[low_level == 'adm_2' & name_1 == name_1_in,],
-              aes(x = year , y = value, group = variable)) +
-    # geom_hline(data =  comp_r21[source == 'DHS' & year == 2016 & low_level == 'adm_2' &
-    #                             name_1 == name_2],
-    #            aes(yintercept = mean)) +
-    malaria_plot_theme(name_1 = NULL, y_lab = NULL, caption = NULL) +
-    scale_color_manual(values = c("r21_primary_cov" = colors[1],
-                                  "r21_booster1_cov" = colors[3])) +
-    facet_wrap(~name_2)
-}
-
-pdf("r21_cov.pdf", width = 8, height = 8)
-unique(r21_cov_plots)
-dev.off()
+# r21_cov_plots <- list()
+# r21_cov_plots[['Uganda']] <- ggplot() +
+#   theme_bw(base_size = 14) +
+#   geom_point(data = site_r21[low_level == 'adm_1'],
+#              aes(x = year , y = value,
+#                  col = variable), size = 2) +
+#   geom_line(data  = site_r21[low_level == 'adm_1'],
+#             aes(x = year , y = value, group = variable)) +
+#   geom_hline(data = comp_r21[source == 'DHS' & year == 2016 & low_level == 'adm_1' & name_1 == name_2],
+#              aes(yintercept = mean)) + facet_wrap(~name_1) +
+#   malaria_plot_theme(name_1 = NULL, y_lab = NULL, caption = NULL) +
+#   scale_color_manual(values = c("r21_primary_cov" = colors[1],
+#                                 "r21_booster1_cov" = colors[3]))
+#
+#
+# for(name_1_in in unique(r21_dt$name_1)){
+#   r21_cov_plots[[name_1_in]] <-  ggplot() +
+#     theme_bw(base_size = 14) +
+#     geom_point(data = site_r21[low_level == 'adm_2' & name_1 == name_1_in,],
+#                aes(x = year , y = value,
+#                    col = variable), size = 2) +
+#     geom_line(data  = site_r21[low_level == 'adm_2' & name_1 == name_1_in,],
+#               aes(x = year , y = value, group = variable)) +
+#     # geom_hline(data =  comp_r21[source == 'DHS' & year == 2016 & low_level == 'adm_2' &
+#     #                             name_1 == name_2],
+#     #            aes(yintercept = mean)) +
+#     malaria_plot_theme(name_1 = NULL, y_lab = NULL, caption = NULL) +
+#     scale_color_manual(values = c("r21_primary_cov" = colors[1],
+#                                   "r21_booster1_cov" = colors[3])) +
+#     facet_wrap(~name_2)
+# }
+#
+# pdf("r21_cov.pdf", width = 8, height = 8)
+# unique(r21_cov_plots)
+# dev.off()
 
 
 r21_plots_admin2 <- list()
